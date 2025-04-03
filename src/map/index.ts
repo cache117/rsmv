@@ -202,7 +202,7 @@ async function mapAreaPreset(filesource: CacheFileSource, areaArgument: string) 
 	return { areas, mask };
 }
 
-export async function runMapRender(output: ScriptOutput, filesource: CacheFileSource, config: MapRender, forceCheck: boolean) {
+export async function runMapRender(output: ScriptOutput, filesource: CacheFileSource, config: MapRender, forceCheck: boolean, progressname?:string) {
 	let versionid = filesource.getBuildNr();
 	if (filesource.getBuildNr() > 900) {
 		//use build number for older caches since they wont have version timestamps
@@ -248,6 +248,7 @@ export async function runMapRender(output: ScriptOutput, filesource: CacheFileSo
 	let engine = await EngineCache.create(filesource);
 
 	let progress = new ProgressUI();
+	if (progressname) progress.updateProp('name', progressname);
 	progress.updateProp("source", filesource.getCacheMeta().name + "\n" + filesource.getCacheMeta().descr);
 	let cleanup = () => progress.root.remove();
 	output.setUI(progress.root);
@@ -974,7 +975,7 @@ const rendermodeHeight: RenderMode<"height"> = function (engine, config, cnf, de
 		async run2d(chunks) {
 			//TODO what to do with classic 48x48 chunks?
 			let file = chunks[0].grid.getHeightCollisionFile(singlerect.x * 64, singlerect.z * 64, thiscnf.level, 64, 64);
-			let buf = Buffer.from(file.buffer, file.byteOffset, file.byteLength);
+			let buf:Buffer = Buffer.from(file.buffer, file.byteOffset, file.byteLength);
 			if (thiscnf.usegzip) {
 				buf = zlib.gzipSync(buf);
 			}

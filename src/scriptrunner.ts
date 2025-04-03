@@ -79,7 +79,8 @@ export class CLIScriptOutput implements ScriptOutput {
 
     setUI(ui: HTMLElement | null) {
         if (ui && typeof document != "undefined") {
-            document.body.appendChild(ui)
+            document.body.prepend(ui);
+            ui.scrollTo(0,0);
         }
     }
 

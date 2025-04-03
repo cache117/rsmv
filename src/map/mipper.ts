@@ -159,7 +159,7 @@ async function mipCanvas(render: MapRender, files: (MipFile | null)[], format: "
 			}
 			// imagedecoder API doesn't support svg
 			if (mimetype != "image/svg+xml" && typeof ImageDecoder != "undefined") {
-				let decoder = new ImageDecoder({ data: res.body, type: mimetype, desiredWidth: subtilesize, desiredHeight: subtilesize });
+				let decoder = new ImageDecoder({ data: res.body as ImageBufferSource, type: mimetype === null ? '' : mimetype, desiredWidth: subtilesize, desiredHeight: subtilesize });
 				img = (await decoder.decode()).image;
 			} else {
 				let blobsrc = URL.createObjectURL(await res.blob());

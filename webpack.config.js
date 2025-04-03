@@ -14,6 +14,7 @@ module.exports = {
 		api: "./src/headless/api",
 		buildfiletypes: "./src/buildfiletypes.ts",
 		maprender: "./src/map/mapcli.ts",
+		maprendergaz: "./src/map/mapcligaz.ts",
 		runbrowser: "./src/headless/runbrowser.ts"
 	},
 	module: {

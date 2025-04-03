@@ -70,3 +70,22 @@ Based on downloader/3d viewer by Sahima, ui by [manpaint](https://github.com/man
 2d map based on code by [mejrs](https://github.com/mejrs)
 
 Cache loader based on code by [villermen](https://github.com/villermen)
+
+## Full installation instructions
+
+If you get errors when running `npm i`, make sure to follow all of these steps:
+
+### Windows:
+It can help to run any commands in an administrator terminal (cmd or powershell).
+- Make sure a sufficiently up-to-date version of node and npm are installed (verified with node v23.0.0 and npm v11.2.0).
+- Ensure node-gyp is installed correctly:
+  - Install [Chocolatey](https://chocolatey.org/install#individual), if you did not do so during node's installation (run `choco -v` to see if it is installed)
+  - Install python and visual studio build environment with `choco install python visualstudio2022-workload-vctools -y` (see https://github.com/nodejs/node-gyp#on-windows)
+  - Install node-gyp with `npm install -g node-gyp`
+- Install GTK2 (see https://github.com/Automattic/node-canvas/wiki/Installation:-Windows#2-installing-gtk-2)
+  - Make sure the contents of the zip are extracted into `C:\GTK`, such that the path looks like (for example) `C:\GTK\bin\libcairo-2.dll`
+- You may need to reboot all open terminals to have things take effect properly - may be easier to fully reboot your computer.
+- You should now be able to run `npm i`
+- Due to changes with sharp, you'll need to downgrade the version. The safest way is to do `npm uninstall sharp` then `npm install sharp@0.30.5`
+- Now you can run `npm run buildnative`
+- Then run `npm run build`
