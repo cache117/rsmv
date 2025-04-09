@@ -21,7 +21,7 @@
 		"clean": "rimraf dist",
 		"nodegl": "electron dist/runbrowser",
 		"map": "electron dist/runbrowser dist/maprender -o cache -c extract_map/mapconfig.jsonc -f",
-		"maptest": "electron dist/runbrowser dist/maprender -o cache -c extract_map/mapconfigtest.jsonc -f",
+		"maptest": "electron dist/runbrowser dist/maprender -o cache -c extract_map/mapconfig_28.jsonc -f",
 		"mapgaz": "electron dist/runbrowser dist/maprendergaz -o cache -f"
 	},
 	"author": "Skillbert",

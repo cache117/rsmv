@@ -583,7 +583,7 @@ class SimpleHasher {
 
 function chunkrectToOffetWorldRect(engine: EngineCache, rect: MapRect) {
 	const chunksize = (engine.classicData ? classicChunkSize : rs2ChunkSize);
-	const offset = Math.round(chunksize / 4);
+	const offset = 0;//Math.round(chunksize / 4);
 	let worldrect: MapRect = {
 		x: rect.x * chunksize - offset,
 		z: rect.z * chunksize - offset,
@@ -592,7 +592,7 @@ function chunkrectToOffetWorldRect(engine: EngineCache, rect: MapRect) {
 	};
 	return {
 		worldrect,
-		loadedchunksrect: { x: rect.x - 1, z: rect.z - 1, xsize: rect.xsize + 1, zsize: rect.zsize + 1 }
+		loadedchunksrect: { x: rect.x - 2, z: rect.z - 2, xsize: rect.xsize + 2, zsize: rect.zsize + 2 }
 	}
 }
 
