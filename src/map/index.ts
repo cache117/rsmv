@@ -775,8 +775,13 @@ const rendermode3d: RenderMode<"3d" | "minimap"> = function (engine, config, cnf
 		for (let subx = 0; subx < subslices; subx++) {
 			for (let subz = 0; subz < subslices; subz++) {
 				let suby = subslices - 1 - subz;
-				let filename = config.makeFileName(thiscnf.name, zoom, baseoutput.x * subslices + subx, baseoutput.y * subslices + suby, cnf.format ?? "webp");
-
+				let yname = (200-baseoutput.y) * subslices -1 + suby;
+				let xname = baseoutput.x * subslices + subx;
+				let filename = config.makeFileName(thiscnf.name, zoom, xname, yname, cnf.format ?? "webp");
+				if (zoom < 4) {
+					console.log(`making zoom=${zoom} subslices=${subslices} subx=${subx} subz=${subz} suby=${suby} xname=${xname} yname=${yname} filename=${filename}`);
+					//debugger;
+				}
 				let parentCandidates: { name: string, level: number }[] = [
 					{ name: filename, level: thiscnf.level }
 				];

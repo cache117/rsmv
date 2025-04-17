@@ -20,7 +20,10 @@ export class MipScheduler {
 	}
 	addTask(layer: LayerConfig, zoom: number, hash: number, x: number, y: number, srcfile: string, fshash: number) {
 		if (zoom - 1 < this.minzoom) { return; }
-		let newname = this.render.makeFileName(layer.name, zoom - 1, Math.floor(x / 2), Math.floor(y / 2), layer.format ?? "webp");
+		let xname = Math.floor(x/2);
+		let yname = Math.floor((Math.ceil(200/Math.pow(2, 2-zoom)) - y - 1)/2);
+		let newname = this.render.makeFileName(layer.name, zoom - 1, xname, yname, layer.format ?? "webp");
+		console.log(layer.name, zoom, x, y, xname, yname, newname);
 		let incomp = getOrInsert(this.incompletes, newname, () => ({
 			layer,
 			zoom: zoom - 1,
