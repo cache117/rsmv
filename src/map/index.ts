@@ -20,6 +20,7 @@ import { KnownMapFile, MapRender, SymlinkCommand, VersionFilter } from "./backen
 import { ProgressUI, TileLoadState } from "./progressui";
 import { MipScheduler } from "./mipper";
 import { crc32addInt } from "../libs/crc32util";
+import log from '../gazlogger';
 
 type RenderedMapVersionMeta = {
 	buildnr: number,
@@ -109,7 +110,7 @@ async function getVersionsFile(config: MapRender, includeCacheVersion: CacheFile
 		});
 		mapversionsinfo.versions.sort((a, b) => b.version - a.version);
 		//no lock this is technically a race condition when using multiple renderers
-		console.log("updating versions file");
+		log("updating versions file");
 		await config.saveFile("versions.json", 0, Buffer.from(JSON.stringify(mapversionsinfo)), 0);
 	}
 	return mapversionsinfo;
@@ -228,7 +229,7 @@ export async function runMapRender(output: ScriptOutput, filesource: CacheFileSo
 	if (!forceCheck) {
 		let prevconfigreq = await config.getFileResponse("meta.json");
 		if (!prevconfigreq.ok) {
-			console.log(`starting new render ${config.version}`);
+			log(`starting new render ${config.version}`);
 		} else {
 			let prevconfig: RenderedMapVersionMeta = await prevconfigreq.json();
 			let prevdate = new Date(prevconfig.rendertimestamp);
@@ -237,9 +238,9 @@ export async function runMapRender(output: ScriptOutput, filesource: CacheFileSo
 			let hoursold = (Date.now() - +prevdate) / 1000 / 60 / 60;
 			//take work from other worker if the timestamp is older than 20 hours which probably means something crashed
 			if (prevconfig.running && isownrun) {
-				console.log(`continuing render ${config.version} which was locked by current worker`);
+				log(`continuing render ${config.version} which was locked by current worker`);
 			} else if (prevconfig.running && hoursold > 20) {
-				console.log(`continuing render ${config.version} which was locked by other worker and presumed abandoned. (locked ${hoursold | 0} hours ago)`);
+				log(`continuing render ${config.version} which was locked by other worker and presumed abandoned. (locked ${hoursold | 0} hours ago)`);
 			} else {
 				output.log("skipping", config.version);
 				return () => { };
@@ -341,7 +342,7 @@ export class MapRenderer {
 				cnv.addEventListener("webglcontextrestored", handler);
 				let timer = setTimeout(cleanup, 10 * 1000, false);
 			})
-			console.log(`context restore detection ${isrestored ? "restored before trigger" : "triggered and focusing window"}`);
+			log(`context restore detection ${isrestored ? "restored before trigger" : "triggered and focusing window"}`);
 			if (!isrestored) {
 				// electron.remote.getCurrentWebContents().focus();
 			}
@@ -355,7 +356,7 @@ export class MapRenderer {
 		} else {
 			this.loadcallback?.(x, z, "loading");
 			if (!this.scenecache) {
-				console.log("refreshing scenecache");
+				log("refreshing scenecache");
 				this.scenecache = await ThreejsSceneCache.create(this.engine);
 			}
 			if (!square) {
@@ -691,7 +692,7 @@ export function renderMapsquare(engine: EngineCache, config: MapRender, depstrac
 		miptasks.forEach(q => q());
 		progress.update(chunkx, chunkz, (savetasks.length == 0 ? "skipped" : "done"));
 		let localsymlinkcount = symlinkcommands.filter(q => q.symlinkbuildnr == config.version && q.file != q.symlink).length;
-		console.log("imaged", chunkx, chunkz, "files", savetasks.length, "symlinks", localsymlinkcount, "(unchanged)", symlinkcommands.length - localsymlinkcount);
+		log("imaged", chunkx, chunkz, "files", savetasks.length, "symlinks", localsymlinkcount, "(unchanged)", symlinkcommands.length - localsymlinkcount);
 	}
 
 	//TODO returning a promise just gets flattened with our currnet async execution
@@ -782,7 +783,7 @@ const rendermode3d: RenderMode<"3d" | "minimap"> = function (engine, config, cnf
 		for (let subx = 0; subx < subslices; subx++) {
 			for (let subz = 0; subz < subslices; subz++) {
 				let suby = (config.config.noyflip ? subz : subslices - 1 - subz);
-				let filename = config.makeFileName(thiscnf.name, zoom, baseoutput.x * subslices + subx, baseoutput.y * subslices + suby, cnf.format ?? "webp");
+				let filename = config.makeFileName(thiscnf.level, zoom, baseoutput.x * subslices + subx, baseoutput.y * subslices + suby, cnf.format ?? "webp", thiscnf.name);
 
 				let parentCandidates: { name: string, level: number }[] = [
 					{ name: filename, level: thiscnf.level }
@@ -794,7 +795,7 @@ const rendermode3d: RenderMode<"3d" | "minimap"> = function (engine, config, cnf
 						continue;
 					}
 					parentCandidates.push({
-						name: config.makeFileName(other.name, zoom, baseoutput.x * subslices + subx, baseoutput.y * subslices + suby, cnf.format ?? "webp"),
+						name: config.makeFileName(thiscnf.level, zoom, baseoutput.x * subslices + subx, baseoutput.y * subslices + suby, cnf.format ?? "webp", other.name),
 						level: other.level
 					});
 				}
@@ -937,7 +938,7 @@ const rendermodeMap: RenderMode<"map"> = function (engine, config, cnf, deps, ba
 	let zooms = getLayerZooms(config.config, cnf);
 	let { loadedchunksrect, worldrect } = chunkrectToOffetWorldRect(engine, config, maprect);
 	let thiscnf = cnf;
-	let filename = config.makeFileName(thiscnf.name, zooms.base, baseoutput.x, baseoutput.y, "svg");
+	let filename = config.makeFileName(thiscnf.level, zooms.base, baseoutput.x, baseoutput.y, "svg", thiscnf.name);
 	let depcrc = deps.recthash(loadedchunksrect);
 	return [{
 		layer: thiscnf,
@@ -968,7 +969,7 @@ const rendermodeCollision: RenderMode<"collision"> = function (engine, config, c
 	let zooms = getLayerZooms(config.config, cnf);
 	let { loadedchunksrect, worldrect } = chunkrectToOffetWorldRect(engine, config, maprect);
 	let thiscnf = cnf;
-	let filename = config.makeFileName(thiscnf.name, zooms.base, baseoutput.x, baseoutput.y, cnf.format ?? "webp");
+	let filename = config.makeFileName(thiscnf.level, zooms.base, baseoutput.x, baseoutput.y, cnf.format ?? "webp", thiscnf.name);
 	let depcrc = deps.recthash(loadedchunksrect);
 	return [{
 		layer: thiscnf,

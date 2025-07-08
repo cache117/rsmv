@@ -1,0 +1,1087 @@
+{
+	// override existing map squares with other squares
+	"overrides": [
+		// first bunch are all prifddinas
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 32,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 32,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 33,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 33,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 33,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 33,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 33,
+				"original_regionY": 53,
+				"new_plane": 0,
+				"new_regionX": 33,
+				"new_regionY": 53
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 53,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 53
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 53,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 53
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 50,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 50
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 50,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 50
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 36,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 36,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 36,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 36,
+				"new_regionY": 52
+			}
+		},
+		{	// lost grove entrance
+			"mapId": 28,
+			"index": 746,
+			"content": {
+				"n_planes": 4,
+				"original_plane": 0,
+				"original_regionX": 21,
+				"original_regionY": 86,
+				"new_plane": 0,
+				"new_regionX": 30,
+				"new_regionY": 47
+			}
+		},
+		{	// water temple
+			"mapId": 159,
+			"index": 0,
+			"content": {
+				"n_planes": 1,
+				"original_plane": 0,
+				"original_regionX": 54,
+				"original_regionY": 75,
+				"new_plane": 0,
+				"new_regionX": 54,
+				"new_regionY": 75
+			}
+		}
+	],
+
+	// custom map squares that aren't in the relevant enum
+	"customs": {
+		"10000": { //ed1
+			"squares": [
+				{
+					"n_planes": 1,
+					"original_plane": 0,
+					"original_regionX": 70,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 0,
+					"original_regionX": 70,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 0,
+					"original_regionX": 70,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 0,
+					"original_regionX": 71,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 0,
+					"original_regionX": 71,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 70,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 70,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 71,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 71,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 72,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 72,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 72,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 72,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 73,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 73,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 73,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 73,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 73,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 74,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 74,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 74,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 74,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 1,
+					"original_plane": 1,
+					"original_regionX": 74,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 4
+				}
+			],
+			"name": "Temple of Aminishi"
+		},
+		"10001": { //ed2
+			"squares": [
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 76,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 76,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 76,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 76,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 76,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 77,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 77,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 77,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 77,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 77,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 78,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 78,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 78,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 78,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 78,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 79,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 79,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 79,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 79,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 79,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 80,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 80,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 80,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 80,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 80,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 4
+				}
+			],
+			"name": "Dragonkin Laboratory"
+		},
+		"10002": { //ed3
+			"squares": [
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 82,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 82,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 82,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 82,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 82,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 0,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 83,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 83,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 83,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 83,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 83,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 1,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 84,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 84,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 84,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 84,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 84,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 85,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 85,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 85,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 85,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 85,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 86,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 86,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 86,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 86,
+					"original_regionY": 143,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 3
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 86,
+					"original_regionY": 144,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 4
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 2,
+					"original_regionX": 84,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 2,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 2,
+					"original_regionX": 85,
+					"original_regionY": 140,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 0
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 2,
+					"original_regionX": 85,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 2,
+					"original_regionX": 85,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 2
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 3,
+					"original_regionX": 85,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 3,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 3,
+					"original_regionX": 86,
+					"original_regionY": 141,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 1
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 3,
+					"original_regionX": 86,
+					"original_regionY": 142,
+					"new_plane": 0,
+					"new_regionX": 4,
+					"new_regionY": 2
+				}
+			],
+			"name": "The Shadow Reef"
+		},
+		"10003": { //war's retreat
+			"squares": [
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 50,
+					"original_regionY": 158,
+					"new_plane": 0,
+					"new_regionX": 50,
+					"new_regionY": 158
+				},
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 51,
+					"original_regionY": 158,
+					"new_plane": 0,
+					"new_regionX": 51,
+					"new_regionY": 158
+				}
+			],
+			"name": "War's Retreat"
+		},
+		"10004": { //dorgesh-kaan agility
+			"squares": [
+				{
+					"n_planes": 4,
+					"original_plane": 3,
+					"original_regionX": 42,
+					"original_regionY": 81,
+					"new_plane": 0,
+					"new_regionX": 42,
+					"new_regionY": 81
+				}
+			],
+			"name": "Dorgesh-Kaan Agility course"
+		},
+		"10005": { //dragonkin lair
+			"squares": [
+				{
+					"n_planes": 0,
+					"original_plane": 0,
+					"original_regionX": 19,
+					"original_regionY": 65,
+					"new_plane": 0,
+					"new_regionX": 19,
+					"new_regionY": 65
+				}
+			],
+			"name": "Dragonkin Lair"
+		}
+	},
+
+	// map squares to add more planes to
+	"addplanes": [
+		{"mapId": 19,  "n_planes": 4}, //braindeath island
+		{"mapId": 21,  "n_planes": 4}, //keldagrim
+		{"mapId": 137, "n_planes": 4}, //games room
+		{"mapId": 200, "n_planes": 4}, //poison wastes sewer
+		{"mapId": 211, "n_planes": 4}, //temple of light
+		{"mapId": 515, "n_planes": 3}, //enakhra's temple
+		{"mapId": 549, "n_planes": 3}, //mage training arena
+		{"mapId": 677, "n_planes": 4}, //new varrock
+		{"mapId": 688, "n_planes": 4}  //guthixian caches
+	]
+}

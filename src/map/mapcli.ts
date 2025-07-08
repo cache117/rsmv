@@ -9,6 +9,7 @@ import { stringToFileRange } from "../utils";
 import { classicBuilds, ClassicFileSource, detectClassicVersions } from "../cache/classicloader";
 import path from "path";
 import fs from "fs/promises";
+import log from '../gazlogger';
 
 let cmd = cmdts.command({
 	name: "download",
@@ -107,10 +108,10 @@ let cmd = cmdts.command({
 	let res = await cmdts.runSafely(cmd, cliArguments());
 	let code = 0;
 	if (res._tag == "error") {
-		console.error(res.error.config.message);
+		log('ERROR', res.error.config.message);
 		code = res.error.config.exitCode;
 	} else {
-		console.log("cmd completed", res.value);
+		log("cmd completed", res.value);
 	}
 	if (globalThis.onCliCompleted) {
 		globalThis.onCliCompleted(code);

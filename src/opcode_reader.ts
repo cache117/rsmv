@@ -1,6 +1,7 @@
 import { lastLegacyBuildnr } from "./constants";
 import type * as jsonschema from "json-schema";
 import type { ClientscriptObfuscation } from "./clientscript/callibrator";
+import log from './gazlogger';
 
 export type TypeDef = { [name: string]: unknown };
 
@@ -117,7 +118,7 @@ function opcodesParser(chunkdef: {}, parent: ChunkParentCallback, typedef: TypeD
 				if (state.scan == state.endoffset) {
 					if (!hasexplicitnull) {
 						// throw new Error("ended reading opcode struct at end of file without 0x00 opcode");
-						console.log("ended reading opcode struct at end of file without 0x00 opcode");
+						log("ended reading opcode struct at end of file without 0x00 opcode");
 					}
 					break;
 				}
@@ -1258,7 +1259,7 @@ const hardcodes: Record<string, (args: unknown[], parent: ChunkParentCallback, t
 				if (debugdata) {
 					debugdata.opcodes.push({ op: `footer`, index: state.scan, stacksize: state.stack.length + 1, jump: { to: oldscan } });
 				}
-				if (state.scan != state.endoffset) { console.log(`didn't read full footer, ${state.endoffset - state.scan} bytes left`); }
+				if (state.scan != state.endoffset) { log(`didn't read full footer, ${state.endoffset - state.scan} bytes left`); }
 				state.scan = oldscan;
 				state.endoffset = state.endoffset - len;
 

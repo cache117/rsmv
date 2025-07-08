@@ -4,6 +4,7 @@ import { crc32addInt } from "../libs/crc32util";
 import { getOrInsert } from "../utils";
 import { MapRender, SymlinkCommand } from "./backends";
 import { ProgressUI } from "./progressui";
+import log from '../gazlogger';
 
 type MipFile = { name: string, hash: number, fshash: number };
 type MipCommand = { layer: LayerConfig, zoom: number, x: number, y: number, files: (MipFile | null)[] };
@@ -21,9 +22,9 @@ export class MipScheduler {
 	addTask(layer: LayerConfig, zoom: number, hash: number, x: number, y: number, srcfile: string, fshash: number) {
 		if (zoom - 1 < this.minzoom) { return; }
 		let xname = Math.floor(x/2);
-		let yname = Math.floor((Math.ceil(200/Math.pow(2, 2-zoom)) - y - 1)/2);
-		let newname = this.render.makeFileName(layer.name, zoom - 1, xname, yname, layer.format ?? "webp");
-		console.log(layer.name, zoom, x, y, xname, yname, newname);
+		let yname = Math.floor(y/2);//Math.floor((Math.ceil(200/Math.pow(2, 2-zoom)) - y - 1)/2);
+		let newname = this.render.makeFileName(layer.level, zoom - 1, xname, yname, layer.format ?? "webp", layer.name);
+		//log(layer.name, zoom, x, y, xname, yname, newname);
 		let incomp = getOrInsert(this.incompletes, newname, () => ({
 			layer,
 			zoom: zoom - 1,
@@ -107,7 +108,7 @@ export class MipScheduler {
 			}
 			await processTasks();
 		} while (includeIncomplete && this.incompletes.size != 0)
-		console.log("mipped", completed, "skipped", skipped, "left", this.incompletes.size);
+		log("mipped", completed, "skipped", skipped, "left", this.incompletes.size);
 		return completed
 	}
 }

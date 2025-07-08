@@ -38,6 +38,11 @@ export function parseMapConfig(configfile: string) {
 	assertSchema(layerconfig, maprenderConfigSchema);
 	return layerconfig;
 }
+export function parseMapConfigObject(layerconfig: any) {
+	delete layerconfig.$schema;//for some reason jsonschema has special (incorrect) behavior for this
+	assertSchema(layerconfig, maprenderConfigSchema);
+	return layerconfig;
+}
 
 export abstract class MapRender {
 	config: Mapconfig;
@@ -47,7 +52,7 @@ export abstract class MapRender {
 		this.config = config;
 	}
 	abstract getFileResponse(name: string, version?: number): Promise<Response>;
-	abstract makeFileName(layer: string, zoom: number, x: number, y: number, ext: string): string;
+	abstract makeFileName(layer: string|number, zoom: number, x: number, y: number, ext: string, parent:string): string;
 	abstract saveFile(name: string, hash: number, data: Buffer, version?: number): Promise<void>;
 	abstract symlink(name: string, hash: number, symlinktarget: string, symlinkversion?: number): Promise<void>;
 
@@ -74,8 +79,9 @@ export class MapRenderFsBacked extends MapRender {
 		super(config);
 		this.fs = fs;
 	}
-	makeFileName(layer: string, zoom: number, x: number, y: number, ext: string) {
-		return `${layer}/${zoom}/${x}-${y}.${ext}`;
+	makeFileName(layer: string|number, zoom: number, x: number, y: number, ext: string, parent:string) {
+		return `${parent}/${zoom}/${layer}_${x}_${y}.${ext}`;
+		//return `${layer}/${zoom}/${x}-${y}.${ext}`;
 	}
 	assertVersion(version = this.version) {
 		if (version != 0 && version != this.version) { throw new Error("versions not supported"); }
@@ -140,8 +146,9 @@ export class MapRenderDatabaseBacked extends MapRender {
 
 		return new MapRenderDatabaseBacked(endpoint, auth, workerid, uploadmapid, config, rendermetaname, overwrite, ignorebefore);
 	}
-	makeFileName(layer: string, zoom: number, x: number, y: number, ext: string) {
-		return `${layer}/${zoom}/${x}-${y}.${ext}`;
+	makeFileName(layer: string|number, zoom: number, x: number, y: number, ext: string, parent:string) {
+		return `${parent}/${zoom}/${layer}_${x}_${y}.${ext}`;
+		//return `${layer}/${zoom}/${x}-${y}.${ext}`;
 	}
 	async beginMapVersion(version: number) {
 		this.version = version;
