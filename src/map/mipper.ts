@@ -4,7 +4,7 @@ import { crc32addInt } from "../libs/crc32util";
 import { getOrInsert } from "../utils";
 import { MapRender, SymlinkCommand } from "./backends";
 import { ProgressUI } from "./progressui";
-import log from '../gazlogger';
+import log from '../loggerwithtime';
 
 type MipFile = { name: string, hash: number, fshash: number };
 type MipCommand = { layer: LayerConfig, zoom: number, x: number, y: number, files: (MipFile | null)[] };

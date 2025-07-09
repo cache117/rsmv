@@ -20,7 +20,7 @@ import { KnownMapFile, MapRender, SymlinkCommand, VersionFilter } from "./backen
 import { ProgressUI, TileLoadState } from "./progressui";
 import { MipScheduler } from "./mipper";
 import { crc32addInt } from "../libs/crc32util";
-import log from '../gazlogger';
+import log from '../loggerwithtime';
 
 type RenderedMapVersionMeta = {
 	buildnr: number,

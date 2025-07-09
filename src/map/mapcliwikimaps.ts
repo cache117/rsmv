@@ -6,7 +6,7 @@ import { Mapconfig, runMapRender } from ".";
 import { MapRender, MapRenderFsBacked, parseMapConfigObject } from "./backends";
 import { MapRect } from "../3d/mapsquare";
 import fs from "fs/promises";
-import log from '../gazlogger';
+import log from '../loggerwithtime';
 import { canvasToImageFile } from "../imgutils";
 import { cacheMajors } from "../constants";
 import { parse } from "../opdecoder";
@@ -119,10 +119,6 @@ let cmd = cmdts.command({
 		ascending: cmdts.flag({ long: "ascending", short: "a" }),
 		force: cmdts.flag({ long: "force", short: "f" }),
 		ignorebefore: cmdts.option({ long: "ignorebefore", type: cmdts.optional(cmdts.string) }),
-		//remote
-		endpoint: cmdts.option({ long: "endpoint", short: "e", type: cmdts.optional(cmdts.string) }),
-		auth: cmdts.option({ long: "auth", short: "p", type: cmdts.optional(cmdts.string) }),
-		mapid: cmdts.option({ long: "mapid", type: cmdts.optional(cmdts.number) }),
 		//fs
 		configfile: cmdts.option({ long: "config", short: "c", type: cmdts.optional(cmdts.string) }),
 		outdir: cmdts.option({ long: "out", short: "s", type: cmdts.optional(cmdts.string) }),
@@ -136,7 +132,7 @@ let cmd = cmdts.command({
 	},
 	handler: async (args) => {
 		const sheet = document.createElement('style');
-		sheet.innerHTML = 'canvas {background-color:green;margin-bottom:1em;}';
+		sheet.innerHTML = 'canvas {background-color:green;margin-bottom:1em;} #mipprogressdiv {columns:2;}';
 		document.head.appendChild(sheet)
 		duration_map[-100] = {id:-100,start:Date.now()};
 		globalThis.duration_map = duration_map;
@@ -241,33 +237,46 @@ let cmd = cmdts.command({
 		duration_map[basemap_default.mapId].end = Date.now();
 		duration_map[basemap_default.mapId].dur = duration_map[basemap_default.mapId].end! - duration_map[basemap_default.mapId].start;
 		if (args.domip) {
-			globalThis.totalToMip = basemaps.reduce((acc,val)=>{
-				if (val.mapId === -1 && (args.bm === undefined || args.bm.length === 0 || args.bm.includes(val.mapId))) return acc;
-				let bounds = boundsToCoords(val.bounds);
-				let working = (bounds.x2-bounds.x1) * (bounds.y2-bounds.y1), working2 = working;
-				for (let i=0;i<10;i++) {
-					working = Math.ceil(working/4);
-					working2 += working;
+			globalThis.mipLenMap={};
+			globalThis.totalToMip = Object.entries(worldmappastes).reduce((acc,[mapId, val])=>{
+				if (mapId === "-1" && (args.bm === undefined || args.bm.length === 0 || args.bm.includes(parseInt(mapId)))) return acc;
+				let totalchunks = val.chunks?.reduce((acc,val2)=>{return acc+Math.max(1,val2.n_planes)},0) + val.squares?.reduce((acc,val2)=>{return acc+Math.max(1,val2.n_planes)},0)*8, 
+					h=val.height*4,
+					w=val.width*4,
+					area=h*w,
+					working=totalchunks+area;
+				for (let z=4;z>-6;z--) {
+					h = Math.ceil(h/2);
+					w = Math.ceil(w/2);
+					area = h*w;
+					working += area;
 				}
-				return acc + working2;
+				working = working * ((args.mapicons?1:0)+(args.mapnoicons?1:0))
+				globalThis.mipLenMap[mapId]=working;
+				return acc + working;
 			},0);
 			globalThis.numformat = new Intl.NumberFormat();
 			globalThis.totalToMip=globalThis.numformat.format(globalThis.totalToMip);
-			log('total to mip', globalThis.totalToMip);
+			log('total to process', globalThis.totalToMip);
 			globalThis.totalMipped = 0;
 			globalThis.toNextUpdate = 0;
-			const progressDiv = document.createElement('div');
-			document.body.prepend(progressDiv);
+			const progressDiv = document.createElement('div'),progressDiv2=document.createElement('div'), progressDivW=document.createElement('div');
+			progressDivW.id = 'mipprogressdiv';
+			progressDivW.append(progressDiv,progressDiv2);
+			document.body.prepend(progressDivW);
 			globalThis.progressDiv = progressDiv;
+			globalThis.progressDiv2 = progressDiv2;
 			progressDiv.innerText = `${globalThis.totalToMip} things to process!`
-
+			progress2('Starting mip');
 			for (let bm of basemaps) {
 				if (bm.mapId !== -1 && (args.bm === undefined || args.bm.length === 0 || args.bm.includes(bm.mapId))){
+					progress2(`mipping mapID=${bm.mapId}, ${globalThis.mipLenMap[bm.mapId]} nodes`);
 					duration_map[bm.mapId] = {id:bm.mapId, start:Date.now()};
-					await gazmip(config, bm, worldmappastes[bm.mapId], {debug:args.debug,noicons:args.mapnoicons,icons:args.mapicons});
+					await mipMapID(config, bm, worldmappastes[bm.mapId], {debug:args.debug,noicons:args.mapnoicons,icons:args.mapicons});
 					duration_map[bm.mapId].end = Date.now();
 					duration_map[bm.mapId].dur = duration_map[bm.mapId].end! - duration_map[bm.mapId].start;
 					log(`mapid ${bm.mapId}:`, (new Date(duration_map[bm.mapId].start)).toISOString(), '->', (new Date(duration_map[bm.mapId].end!)).toISOString(), ':::', (duration_map[bm.mapId].dur!/1000).toFixed(1));
+					progress2(`Finished mipping ${bm.mapId}, took ${(duration_map[bm.mapId].dur!/1000).toFixed(1)} seconds`)
 				}
 			}
 		}
@@ -280,20 +289,20 @@ let cmd = cmdts.command({
 			}
 			log(first, (new Date(start)).toISOString(), '->', (new Date(end!)).toISOString(), ':::', (dur!/1000).toFixed(1));
 		}
+		progress2('Starting finished!');
 	}
 });
-const progress = (i?:number)=>{
+const progress = (i?:number, forceupdate?:boolean)=>{
 	if (i === undefined) i=1;
 	globalThis.totalMipped += i;
 	globalThis.toNextUpdate -= i;
-	if (globalThis.toNextUpdate <= 0) {
+	if (globalThis.toNextUpdate <= 0 || forceupdate) {
 		globalThis.toNextUpdate = 1000;
-		globalThis.progressDiv.innerText = `${globalThis.numformat.format(globalThis.totalMipped)}/${globalThis.totalToMip}\n`+globalThis.progressDiv.innerText;
+		globalThis.progressDiv.prepend(`${globalThis.numformat.format(globalThis.totalMipped)}/${globalThis.totalToMip}\n`);
 	}
 };
-const null0 = (x:number|null|undefined):number => {
-	if (x === null || x === undefined) return 0;
-	return x;
+const progress2 = (txt:string)=>{
+	globalThis.progressDiv2.prepend(`[${(new Date()).toISOString()}] ${txt}\n`);
 };
 const COMBOS = (()=>{
 	let arr:number[][] = [];
@@ -304,7 +313,7 @@ const COMBOS = (()=>{
 	}
 	return arr;
 })();
-const gazmip = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, options:{debug:boolean,icons:boolean,noicons:boolean})=>{
+const mipMapID = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, options:{debug:boolean,icons:boolean,noicons:boolean})=>{
 	let originalBounds = boundsToCoords(basemap.bounds);
 	log(`mipping mapid ${basemap.mapId}`);
 	log(`bounds: ${JSON.stringify(basemap.bounds)}`);
@@ -354,14 +363,14 @@ const gazmip = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, opti
 				let x = sq.original_regionX*4+xi;
 				let y = sq.original_regionY*4+yi;
 				let destx = tilesize * (sq.new_regionX*4+xi-west);
-				let desty = tilesize * (sq.new_regionY*4+yi-south);
-				for (let layer=0;layer<sq.n_planes;layer++) {
+				let desty = tilesize * (sq.new_regionY*4+yi-south + 1);
+				for (let layer=0;layer<Math.max(1,sq.n_planes);layer++) {
 					progress(1);
 					let oldlayer = sq.original_plane+layer;
 					if (oldlayer>3)break;
 					let newlayer = Math.min(3,sq.new_plane+layer);
 					let sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source);
-					if (options.debug) log('SQUARE', oldlayer, xi,yi, sourcefile, x, y, newlayer, destx, desty);
+					if (options.debug) log('SUBSQUARE', oldlayer, xi,yi, sourcefile, x, y, newlayer, destx, desty);
 					let res = await render.getFileResponse(sourcefile);
 					if (res.status == 200) {
 						let bitmap = await createImageBitmap(await res.blob());
@@ -372,11 +381,11 @@ const gazmip = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, opti
 							tilesize, //source width
 							tilesize, //source height
 							destx, //dest x
-							cnvh-northr*2 - desty, //dest y
+							cnvh - desty, //dest y
 							tilesize, //dest width
 							tilesize //dest height
 						);
-						if (options.debug) log('drawing square to', newlayer, destx, cnvh-desty)
+						if (options.debug) log('drawing subsquare to', newlayer, destx, cnvh-desty)
 						hasdrawnto[newlayer]=true;
 					}
 				}
@@ -388,7 +397,7 @@ const gazmip = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, opti
 			let y = sq.original_regionY*4 + Math.floor(sq.original_chunkY!/2);
 			let destx = (sq.new_regionX*4 + sq.new_chunkX!/2 - west);
 			let desty = (sq.new_regionY*4 + sq.new_chunkY!/2 - south);
-			for (let layer=0;layer<sq.n_planes;layer++) {
+			for (let layer=0;layer<Math.max(1,sq.n_planes);layer++) {
 				progress(1);
 				let oldlayer = sq.original_plane+layer;
 				if (oldlayer>3)break;
@@ -485,6 +494,7 @@ const gazmip = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, opti
 		}
 		if (options.debug) debugger;
 	}
+	progress(0,true);
 };
 
 

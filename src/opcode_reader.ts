@@ -1,7 +1,7 @@
 import { lastLegacyBuildnr } from "./constants";
 import type * as jsonschema from "json-schema";
 import type { ClientscriptObfuscation } from "./clientscript/callibrator";
-import log from './gazlogger';
+import log from './loggerwithtime';
 
 export type TypeDef = { [name: string]: unknown };
 

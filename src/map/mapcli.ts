@@ -9,7 +9,7 @@ import { stringToFileRange } from "../utils";
 import { classicBuilds, ClassicFileSource, detectClassicVersions } from "../cache/classicloader";
 import path from "path";
 import fs from "fs/promises";
-import log from '../gazlogger';
+import log from '../loggerwithtime';
 
 let cmd = cmdts.command({
 	name: "download",

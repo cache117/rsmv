@@ -22,7 +22,20 @@
 		"nodegl": "electron dist/runbrowser",
 		"map": "electron dist/runbrowser dist/maprender -o cache -c extract_map/mapconfig.jsonc -f",
 		"maptest": "electron dist/runbrowser dist/maprender -o cache -c extract_map/mapconfig_6_walls.jsonc -f",
-		"mapgaz": "electron dist/runbrowser dist/maprendergaz -o cache -f"
+		
+		"basemapwiki": "electron dist/runbrowser dist/maprenderwiki -o cache -f",
+
+		"mipwikiboth": "electron dist/runbrowser dist/maprenderwiki -o cache -f --domip --mapnoicons --mapicons",
+		"mipwikiicons": "electron dist/runbrowser dist/maprenderwiki -o cache -f --domip --mapicons",
+		"mipwikinoicons": "electron dist/runbrowser dist/maprenderwiki -o cache -f --domip --mapnoicons",
+
+		"mapwikiboth": "electron dist/runbrowser dist/maprenderwiki -o cache -f --rendermap --mapicons --mapnoicons",
+		"mapwikiicons": "electron dist/runbrowser dist/maprenderwiki -o cache -f --rendermap --mapicons",
+		"mapwikinoicons": "electron dist/runbrowser dist/maprenderwiki -o cache -f --rendermap --mapnoicons",
+
+		"mipmapwikiboth": "electron dist/runbrowser dist/maprenderwiki -o cache -f --rendermap --domip --mapnoicons --mapicons",
+		"mipmapwikiicons": "electron dist/runbrowser dist/maprenderwiki -o cache -f --rendermap --domip --mapicons",
+		"mipmapwikinoicons": "electron dist/runbrowser dist/maprenderwiki -o cache -f --rendermap --domip --mapnoicons"
 	},
 	"author": "Skillbert",
 	"license": "GPL-4",
