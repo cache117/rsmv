@@ -6,12 +6,14 @@ import { Mapconfig, runMapRender } from ".";
 import { MapRender, MapRenderFsBacked, parseMapConfigObject } from "./backends";
 import { MapRect } from "../3d/mapsquare";
 import fs from "fs/promises";
+import v8 from 'node:v8';
 import log from '../loggerwithtime';
 import { canvasToImageFile } from "../imgutils";
 import { cacheMajors } from "../constants";
 import { parse } from "../opdecoder";
 import path from "path";
 import { applyOverrides } from "./mapoverrides";
+import { HemisphereLight } from "three";
 
 type BaseMap = {
 	mapId:number,
@@ -47,36 +49,33 @@ type MapPasteSqChunk = {
 		new_chunkY?: number,
 	};
 
-
-const boundsToCoordsStr = ([[x1,y1],[x2,y2]]:number[][]):string => {
+const CANVAS_TRUE_MAX_SIZE = 16000,
+boundsToCoordsStr = ([[x1,y1],[x2,y2]]:number[][]):string => {
 	return `${Math.floor(x1/64)}.${Math.floor(y1/64)}-${Math.ceil(x2/64)}.${Math.ceil(y2/64)}`
-};
-const boundsToCoords = ([[x1,y1],[x2,y2]]:number[][]):CoordBounds => {
-	let out:CoordBounds = {x1: Math.floor(x1/16), y1:Math.floor(y1/16), x2:Math.ceil(x2/16), y2: Math.ceil(y2/16)};
+},
+boundsToCoords = ([[x1,y1],[x2,y2]]:number[][]):CoordBounds => {
+	const out:CoordBounds = {x1: Math.floor(x1/16), y1:Math.floor(y1/16), x2:Math.ceil(x2/16), y2: Math.ceil(y2/16)};
 	out.x1r = x1 - out.x1*16;
 	out.y1r = y1 - out.y1*16;
 	out.x2r = out.x2*16 - x2;
 	out.y2r = out.y2*16 - y2;
 	return out;
-};
-const boundsToCoords2 = ([[x1,y1],[x2,y2]]:number[][]):CoordBounds => {
-	let out:CoordBounds = {x1: Math.floor(x1/64)*4, y1:Math.floor(y1/64)*4, x2:Math.ceil(x2/64)*4, y2: Math.ceil(y2/64)*4};
+},
+boundsToCoords2 = ([[x1,y1],[x2,y2]]:number[][]):CoordBounds => {
+	const out:CoordBounds = {x1: Math.floor(x1/64)*4, y1:Math.floor(y1/64)*4, x2:Math.ceil(x2/64)*4, y2: Math.ceil(y2/64)*4};
 	out.x1r = x1 - out.x1*16;
 	out.y1r = y1 - out.y1*16;
 	out.x2r = out.x2*16 - x2;
 	out.y2r = out.y2*16 - y2;
 	return out;
-};
-
-const duration_map:Record<number,{id:number,start:number,end?:number,dur?:number}> = {};
-
-const isNotNullUndefOrEmpty = (x:any):boolean => {
+},
+duration_map:Record<number,{id:number,start:number,end?:number,dur?:number}> = {},
+isNotNullUndefOrEmpty = (x:any):boolean => {
 	return !(x === null || x === undefined || x === '');
-}
-
-const makeBaseMap=(mapid:string, area:MapPaste, zone:MapZone):BaseMap=>{
-	let west = 100*64, south = 200*64, north = 0, east = 0;
-	let west2 = 100*64, south2 = 200*64, north2 = 0, east2 = 0;
+},
+makeBaseMap=(mapid:string, area:MapPaste, zone:MapZone):BaseMap=>{
+	let west = 100*64, south = 200*64, north = 0, east = 0,
+		west2 = 100*64, south2 = 200*64, north2 = 0, east2 = 0;
 	for (let sq of area.squares) {
 		west = Math.min(west, 64*sq.new_regionX);
 		south = Math.min(south, 64*sq.new_regionY);
@@ -99,7 +98,7 @@ const makeBaseMap=(mapid:string, area:MapPaste, zone:MapZone):BaseMap=>{
 			north2 = Math.max(north2, 64*ch.original_regionY + 8*(1+ch.original_chunkY));
 		}
 	}
-	let out:BaseMap = {
+	const out:BaseMap = {
 		mapId: parseInt(mapid),
 		bounds: [[west,south],[east,north]],
 		originalBounds: [[west2,south2],[east2,north2]],
@@ -110,7 +109,7 @@ const makeBaseMap=(mapid:string, area:MapPaste, zone:MapZone):BaseMap=>{
 };
 
 
-let cmd = cmdts.command({
+const cmd = cmdts.command({
 	name: "download",
 	args: {
 		...filesource,
@@ -128,19 +127,24 @@ let cmd = cmdts.command({
 		mapicons: cmdts.flag({long: 'mapicons'}), //enable to do map with icons
 		mapnoicons: cmdts.flag({long: 'mapnoicons'}), //enable to do map without icons
 		bm: cmdts.multioption({long:'bm', type:cmdts.optional(cmdts.array(cmdts.number))}),
-		debug: cmdts.flag({long:'verbose'})
+		bmfrom: cmdts.option({long:'bmfrom', type:cmdts.optional(cmdts.number)}),
+		debug: cmdts.flag({long:'verbose'}),
+		verydebug: cmdts.flag({long:'veryverbose'}),
+		nosave: cmdts.flag({long:'nosave'})
 	},
 	handler: async (args) => {
-		const sheet = document.createElement('style');
-		sheet.innerHTML = 'canvas {background-color:green;margin-bottom:1em;} #mipprogressdiv {columns:2;}';
-		document.head.appendChild(sheet)
+		console.log(JSON.stringify(v8.getHeapStatistics()));
 		duration_map[-100] = {id:-100,start:Date.now()};
 		globalThis.duration_map = duration_map;
-		let output = new CLIScriptOutput();
-		//let basemaps:BaseMap[] = JSON.parse(await fs.readFile('extract_map/basemaps.json', 'utf-8'));
-		let source = await args.source();
 		let onlybasemaps=false;
-		let outdir = args.outdir ?? 'extract_map/renders';
+		const sheet = document.createElement('style'),
+			output = new CLIScriptOutput(),
+			source = await args.source(),
+			outdir = args.outdir ?? 'extract_map/renders',
+			verbosity = args.debug ? (args.verydebug ? 2 : 1) : 0,
+			basemapidstodo:number[] = [];
+		sheet.innerHTML = 'canvas {background-color:black;margin-bottom:1em;} #mipprogressdiv {display:flex;} #mipprogressdiv div {white-space:pre-line;} #mipprogress-nodes:before {content:"NODE PROGRESS"} #mipprogress-msgs:before {content:"MESSAGES"} canvas.bigcanvas{zoom:10%;}';
+		document.head.appendChild(sheet)
 		log('ARGUMENTS:', `\noutput folder: ${args.outdir}\nrender map: ${args.rendermap}\nperform mip: ${args.domip}\nmap with icons: ${args.mapicons}\nmap without icons: ${args.mapnoicons}`);
 		if ((!args.rendermap && !args.domip) || (!args.mapicons && !args.mapnoicons)) {
 			log('So we are just generating basemaps.json');
@@ -155,28 +159,37 @@ let cmd = cmdts.command({
 			else str+='just no icons';
 			log(str);
 		}
-		let scriptfs = new CLIScriptFS(outdir);
+		if (args.debug) {
+			log('DEBUG MODE');
+			if (args.verydebug) {
+				log('VERY DEBUG');
+			}
+			if (args.nosave) {
+				log('NO SAVING');
+			}
+		}
+		const scriptfs = new CLIScriptFS(outdir);
 		await fs.access(outdir);//check if we're allowed to write the outdir
 		log('creating basemaps')
 
-		let files = await source.getArchiveById(cacheMajors.worldmap, 0);
-		let worldmapzones: {[k:string]:MapZone} = Object.fromEntries(files.map(q => parse.mapZones.read(q.buffer, source))
-			.map((q,i)=>[i.toString(),q]));
-		let files2 = await source.getArchiveById(cacheMajors.worldmap, 1);
-		let worldmappastes = Object.fromEntries(files2.map((q,i)=>[i,parse.mapPastes.read(q.buffer, source)]));
+		const files = await source.getArchiveById(cacheMajors.worldmap, 0),
+			worldmapzones: {[k:string]:MapZone} = Object.fromEntries(files.map(q => parse.mapZones.read(q.buffer, source))
+			.map((q,i)=>[i.toString(),q])),
+			files2 = await source.getArchiveById(cacheMajors.worldmap, 1),
+			worldmappastes = Object.fromEntries(files2.map((q,i)=>[i,parse.mapPastes.read(q.buffer, source)]));
 		await applyOverrides(worldmappastes);
 			
 		await fs.writeFile(path.join(outdir, 'worldmap_zones.json'), JSON.stringify(worldmapzones,null,'\t'));
 		await fs.writeFile(path.join(outdir, 'worldmap_pastes.json'), JSON.stringify(worldmappastes,null,'\t'));
 
-		let basemaps:BaseMap[] = Object.entries(worldmappastes).map(([i,e])=>makeBaseMap(i,e,worldmapzones[i] ?? {}));
-		let basemap_default:BaseMap = {
-			mapId: -1,
-			bounds: [[0,0],[100*64,200*64]],
-			originalBounds: [[0,0],[100*64,200*64]],
-			center: [50*64,100*64],
-			name: 'Default'
-		};
+		const basemaps:BaseMap[] = Object.entries(worldmappastes).map(([i,e])=>makeBaseMap(i,e,worldmapzones[i] ?? {})),
+			basemap_default:BaseMap = {
+				mapId: -1,
+				bounds: [[0,0],[100*64,200*64]],
+				originalBounds: [[0,0],[100*64,200*64]],
+				center: [50*64,100*64],
+				name: 'Default'
+			};
 		basemaps.unshift(basemap_default);
 
 		await fs.writeFile(path.join(outdir, 'basemaps.json'), JSON.stringify(basemaps,null,'\t'));
@@ -184,20 +197,28 @@ let cmd = cmdts.command({
 		if (onlybasemaps) {
 			return;
 		}
+		if (args.bmfrom !== undefined) {
+			basemaps.forEach(v=>{if (v.mapId>=args.bmfrom!) basemapidstodo.push(v.mapId)});
+		}
+		if (!(args.bm === undefined || args.bm.length===0)) {
+			args.bm.forEach(v=>{if (!basemapidstodo.includes(v)) basemapidstodo.push(v);});
+		}
+		if (args.bmfrom === undefined && (args.bm===undefined || args.bm.length === 0)) {
+			basemaps.forEach(v=>basemapidstodo.push(v.mapId));
+		}
 		duration_map[basemap_default.mapId] = {id:-1, start: Date.now()};
-		let config: MapRender;
-		let render_out = `map_squares/${basemap_default.mapId}`;
-		let render_icons_out = `map_icon_squares/${basemap_default.mapId}`;
-		let conf:Mapconfig = {
-			//"$schema": "../generated/maprenderconfig.schema.json",
-			"tileimgsize": 256,
-			"nochunkoffset": true,
-			"noyflip": true,
-			"mapsizex": 100,
-			"mapsizez": 200,
-			"area": boundsToCoordsStr(basemap_default.bounds),
-			"layers": [] 
-		};
+		const render_out = `map_squares/${basemap_default.mapId}`,
+			render_icons_out = `map_icon_squares/${basemap_default.mapId}`,
+			conf:Mapconfig = {
+				//"$schema": "../generated/maprenderconfig.schema.json",
+				"tileimgsize": 256,
+				"nochunkoffset": true,
+				"noyflip": true,
+				"mapsizex": 100,
+				"mapsizez": 200,
+				"area": boundsToCoordsStr(basemap_default.bounds),
+				"layers": [] 
+			};
 		if (args.mapnoicons) {
 			for (let i=0;i<=3;i++) {
 				conf.layers.push({
@@ -229,7 +250,7 @@ let cmd = cmdts.command({
 			}
 		}
 
-		config = new MapRenderFsBacked(scriptfs, parseMapConfigObject(conf));
+		const config = new MapRenderFsBacked(scriptfs, parseMapConfigObject(conf));
 
 		if (args.rendermap) {
 			await runMapRender(output, source, config, args.force, `rendering mapId ${basemap_default.mapId} - ${basemap_default.name}`);
@@ -237,30 +258,43 @@ let cmd = cmdts.command({
 		duration_map[basemap_default.mapId].end = Date.now();
 		duration_map[basemap_default.mapId].dur = duration_map[basemap_default.mapId].end! - duration_map[basemap_default.mapId].start;
 		if (args.domip) {
+			globalThis.totalToMip=0;
 			globalThis.mipLenMap={};
-			globalThis.totalToMip = Object.entries(worldmappastes).reduce((acc,[mapId, val])=>{
-				if (mapId === "-1" && (args.bm === undefined || args.bm.length === 0 || args.bm.includes(parseInt(mapId)))) return acc;
-				let totalchunks = val.chunks?.reduce((acc,val2)=>{return acc+Math.max(1,val2.n_planes)},0) + val.squares?.reduce((acc,val2)=>{return acc+Math.max(1,val2.n_planes)},0)*8, 
-					h=val.height*4,
-					w=val.width*4,
-					area=h*w,
-					working=totalchunks+area;
-				for (let z=4;z>-6;z--) {
+			for (let [mapId,val] of Object.entries(worldmappastes)) {
+				if (mapId === '-1')continue;
+				if (!basemapidstodo.includes(parseInt(mapId))) continue;
+				let total = 0;
+				let h = val.height*4, w=val.width*4;
+				total+=(h*w);
+				for (let z=4; z>-6; z--) {
 					h = Math.ceil(h/2);
 					w = Math.ceil(w/2);
-					area = h*w;
-					working += area;
+					total+=(h*w);
 				}
-				working = working * ((args.mapicons?1:0)+(args.mapnoicons?1:0))
-				globalThis.mipLenMap[mapId]=working;
-				return acc + working;
-			},0);
+				if (val.squares) {
+					for (let sq of val.squares) {
+						total += Math.max(1, sq.n_planes)*16;
+					}
+				}
+				if (val.chunks) {
+					for (let chunk of val.chunks) {
+						total += Math.max(1, chunk.n_planes);
+					}
+				}
+				total *= ((args.mapicons?1:0)+(args.mapnoicons?1:0));
+				globalThis.mipLenMap[mapId] = total;
+				globalThis.totalToMip+=total;
+			}
 			globalThis.numformat = new Intl.NumberFormat();
 			globalThis.totalToMip=globalThis.numformat.format(globalThis.totalToMip);
 			log('total to process', globalThis.totalToMip);
 			globalThis.totalMipped = 0;
 			globalThis.toNextUpdate = 0;
-			const progressDiv = document.createElement('div'),progressDiv2=document.createElement('div'), progressDivW=document.createElement('div');
+			const progressDiv = document.createElement('div'),
+				progressDiv2=document.createElement('div'),
+				progressDivW=document.createElement('div');
+			progressDiv.id = 'mipprogress-nodes';
+			progressDiv2.id = 'mipprogress-msgs';
 			progressDivW.id = 'mipprogressdiv';
 			progressDivW.append(progressDiv,progressDiv2);
 			document.body.prepend(progressDivW);
@@ -268,11 +302,17 @@ let cmd = cmdts.command({
 			globalThis.progressDiv2 = progressDiv2;
 			progressDiv.innerText = `${globalThis.totalToMip} things to process!`
 			progress2('Starting mip');
+			let opts = {
+				verbosity:verbosity,
+				nosave:args.debug&&args.nosave,
+				noicons:args.mapnoicons,
+				icons:args.mapicons
+			};
 			for (let bm of basemaps) {
-				if (bm.mapId !== -1 && (args.bm === undefined || args.bm.length === 0 || args.bm.includes(bm.mapId))){
+				if (basemapidstodo.includes(bm.mapId)) {
 					progress2(`mipping mapID=${bm.mapId}, ${globalThis.mipLenMap[bm.mapId]} nodes`);
 					duration_map[bm.mapId] = {id:bm.mapId, start:Date.now()};
-					await mipMapID(config, bm, worldmappastes[bm.mapId], {debug:args.debug,noicons:args.mapnoicons,icons:args.mapicons});
+					await mipMapID(config, bm, worldmappastes[bm.mapId], opts);
 					duration_map[bm.mapId].end = Date.now();
 					duration_map[bm.mapId].dur = duration_map[bm.mapId].end! - duration_map[bm.mapId].start;
 					log(`mapid ${bm.mapId}:`, (new Date(duration_map[bm.mapId].start)).toISOString(), '->', (new Date(duration_map[bm.mapId].end!)).toISOString(), ':::', (duration_map[bm.mapId].dur!/1000).toFixed(1));
@@ -289,7 +329,7 @@ let cmd = cmdts.command({
 			}
 			log(first, (new Date(start)).toISOString(), '->', (new Date(end!)).toISOString(), ':::', (dur!/1000).toFixed(1));
 		}
-		progress2('Starting finished!');
+		progress2('Finished!');
 	}
 });
 const progress = (i?:number, forceupdate?:boolean)=>{
@@ -298,208 +338,462 @@ const progress = (i?:number, forceupdate?:boolean)=>{
 	globalThis.toNextUpdate -= i;
 	if (globalThis.toNextUpdate <= 0 || forceupdate) {
 		globalThis.toNextUpdate = 1000;
-		globalThis.progressDiv.prepend(`${globalThis.numformat.format(globalThis.totalMipped)}/${globalThis.totalToMip}\n`);
+		globalThis.progressDiv.prepend(`\n${globalThis.numformat.format(globalThis.totalMipped)}/${globalThis.totalToMip}`);
 	}
+},
+progress2 = (txt:string)=>{
+	globalThis.progressDiv2.prepend(`\n[${(new Date()).toISOString()}] ${txt}`);
 };
-const progress2 = (txt:string)=>{
-	globalThis.progressDiv2.prepend(`[${(new Date()).toISOString()}] ${txt}\n`);
+type CanvasContext = {
+	cnv:HTMLCanvasElement,
+	ctx:CanvasRenderingContext2D
 };
+type CanvasContextGrid = CanvasContext[][];
+type MultiCanvas = {
+	rows:number,
+	cols:number,
+	width:number,
+	height:number,
+	grid:CanvasContextGrid
+};
+const makeCanvas=(w:number,h:number, className?:string):CanvasContext=>{
+	const cnv = document.createElement('canvas'),
+		ctx = cnv.getContext('2d', {willReadFrequently:true})!;
+	if (className) {
+		cnv.className=className;
+	}
+	cnv.width = w;
+	cnv.height = h;
+	ctx.fillStyle='rgba(0,0,0,0)';
+	ctx.clearRect(0,0,w,h);
+	ctx.fillRect(0,0,w,h);
+	return {cnv,ctx};
+},
+makeCanvasArray = (maxsize:number, w:number, h:number, className:string):MultiCanvas => {
+	const rows = Math.ceil(h/maxsize),
+		cols = Math.ceil(w/maxsize),
+		arr:CanvasContextGrid = [];
+	for (let r=0;r<rows;r++) {
+		const row:CanvasContext[] = [],
+			rowh = Math.min(maxsize, h-r*maxsize);
+		arr.push(row);
+		for (let c=0;c<cols;c++) {
+			const colw = Math.min(maxsize, w-c*maxsize);
+			row.push(makeCanvas(colw,rowh,className));
+		}
+	}
+	return {rows,cols,grid:arr, width:w, height:h};
+},
+addCanvasTable = (canvases:MultiCanvas):HTMLTableElement => {
+	const tbl = document.createElement('table');
+	for (let cnvrow of canvases.grid) {
+		const tr = document.createElement('tr');
+		tbl.prepend(tr);
+		for (let cnvcell of cnvrow) {
+			const td = document.createElement('td');
+			tr.append(td);
+			td.append(cnvcell.cnv);
+		}
+	}
+	document.body.prepend(tbl);
+	return tbl;
+};
+
+type MapArea = {
+	canvas: {
+		x:number,
+		y:number,
+		height?:number,
+		width?:number,
+		row:number, // multi-canvas row/col
+		column:number,
+		cellx:number,
+		celly:number,
+		ybot?:number
+	},
+	map: {
+		x:number,
+		y:number,
+		width?:number,
+		height?:number
+	}
+}
+class MapAreaFactory {
+	maxsize:number;
+	tilesize:number;
+	subtilesize:number;
+	width:number;
+	height:number;
+	south:number;
+	west:number;
+	southremainder:number;
+	westremainder:number;
+	rawsouth:number;
+	rawwest:number;
+	rows:number;
+	cols:number;
+	leftoverheight:number;
+	constructor(maxsize:number, tilesize:number, width:number, height:number, west:number, south:number){
+		//canvas-related
+		this.maxsize=maxsize;
+		this.tilesize=tilesize;
+		this.subtilesize=this.tilesize/2;
+		this.width=width;
+		this.height=height;
+		this.cols=Math.ceil(this.width/this.maxsize);
+		this.rows=Math.ceil(this.height/this.maxsize);
+
+		this.leftoverheight = this.height-this.rows*this.maxsize;
+
+		//map-related
+		this.rawsouth=south;
+		this.rawwest=west;
+		this.south=Math.floor(this.rawsouth);
+		this.west=Math.floor(this.rawwest);
+		this.westremainder=this.rawwest-this.west;
+		this.southremainder=this.rawsouth-this.south;
+	}
+
+	getAreaFromMapOffset(x:number,y:number) {
+		return this.getAreaFromMap(x+this.west, y+this.south);
+	}
+
+	getAreaFromMap(x:number,y:number):MapArea {
+
+		// left edge of the tile is {x} tiles from the left edge. the left edge is set as {west} 
+		//    thus the point is {x-west} tiles from the left
+		// bottom edge of the tile is {y} tiles from the bottom edge. the bottom edge is set as {south}
+		//    as the canvas's y is from the TOP edge, we do {width - (y-south)}
+		//    but this is TOP edge of the canvas to BOTTOM edge of tile
+		//    so we move 1 tile up {height - (1+y-south)}
+
+		// {col} is just {left/max}, {cellx} is {left % max}
+		// {row} is measured from the bottom edge
+		const pxfromleft = this.tilesize * (x - this.rawwest),
+			pxfrombottom = this.tilesize * (y - this.rawsouth),
+			pxfromtop = this.height - pxfrombottom - this.tilesize,
+			//row = this.rows-1-Math.floor(pxfrombottom/this.maxsize);
+			row = Math.max(0,Math.floor(pxfrombottom/this.maxsize)),
+			celly = Math.min(this.height - row*this.maxsize, this.maxsize) - (pxfrombottom % this.maxsize) - this.tilesize;
+		return {
+			canvas: {
+				x: pxfromleft,
+				y: pxfromtop,
+				ybot: pxfrombottom,
+				column: Math.max(0,Math.floor(pxfromleft/this.maxsize)),
+				cellx: pxfromleft % this.maxsize,
+				row: row,
+				celly: celly
+				//celly: row === 0 ? pxfromtop : this.maxsize - (pxfrombottom % this.maxsize) - this.tilesize
+			},
+			map: {
+				x:x,
+				y:y
+			}
+		} as MapArea;
+
+	}
+	getAreaFromMapChunk(sqx:number,sqy:number, chunkx:number, chunky:number):MapArea {
+
+		// left edge of the tile is {x} tiles from the left edge. the left edge is set as {west} 
+		//    thus the point is {x-west} tiles from the left
+		// bottom edge of the tile is {y} tiles from the bottom edge. the bottom edge is set as {south}
+		//    as the canvas's y is from the TOP edge, we do {width - (y-south)}
+		//    but this is TOP edge of the canvas to BOTTOM edge of tile
+		//    so we move 1 tile up {height - (1+y-south)}
+
+		// {col} is just {left/max}, {cellx} is {left % max}
+		// {row} is measured from the bottom edge
+		const pxfromleft = this.tilesize * (sqx + chunkx - this.rawwest),
+			pxfrombottom = this.tilesize * (sqy+chunky - this.rawsouth),
+			pxfromtop = this.height - pxfrombottom - this.subtilesize,
+			//row = this.rows-1-Math.floor(pxfrombottom/this.maxsize);
+			row = Math.max(0,Math.floor(pxfrombottom/this.maxsize)),
+			celly = Math.min(this.height - row*this.maxsize, this.maxsize) - (pxfrombottom % this.maxsize) - this.subtilesize;
+		return {
+			canvas: {
+				x: pxfromleft,
+				y: pxfromtop,
+				ybot: pxfrombottom,
+				column: Math.max(0,Math.floor(pxfromleft/this.maxsize)),
+				cellx: pxfromleft % this.maxsize,
+				row: row,
+				celly: celly
+				//celly: row === 0 ? pxfromtop : this.maxsize - (pxfrombottom % this.maxsize) - this.tilesize
+			},
+			map: {
+				x:sqx+chunkx,
+				y:sqy+chunky
+			}
+		} as MapArea;
+
+	}
+
+	getAreaFromCanvas(x:number,y:number):MapArea {
+		const pxfrombottom = this.height - (y+this.tilesize);
+		return {
+			canvas: {
+				x: x,
+				y: y,
+				column: Math.floor(x/this.maxsize),
+				cellx: x % this.maxsize,
+				row: Math.floor(y/this.maxsize),
+				celly: y % this.maxsize
+				//row: Math.floor(pxfrombottom/this.maxsize),
+				//celly: pxfrombottom % this.maxsize
+			},
+			map: {
+				x: x/this.tilesize + this.west,
+				y: pxfrombottom/this.tilesize+this.south
+			}
+		} as MapArea;
+
+	}
+}
+
+
+
 const COMBOS = (()=>{
-	let arr:number[][] = [];
+	const arr:number[][] = [];
 	for (let i of [0,1,2,3]) {
 		for (let j of [0,1,2,3]) {
 			arr.push([i,j]);
 		}
 	}
 	return arr;
-})();
-const mipMapID = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, options:{debug:boolean,icons:boolean,noicons:boolean})=>{
-	let originalBounds = boundsToCoords(basemap.bounds);
+})(),
+COMBOS2 = [[0,0],[0,1],[1,0],[1,1]];
+
+const mipMapID = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, options:{verbosity:number,icons:boolean,noicons:boolean,nosave:boolean})=>{
+	const originalBounds = boundsToCoords(basemap.bounds),
+		tilesize = render.config.tileimgsize,
+		CANVAS_MAX_SIZE = tilesize * Math.floor(CANVAS_TRUE_MAX_SIZE/tilesize),
+		subtilesize = tilesize / 2,
+		folders:string[]=[];
 	log(`mipping mapid ${basemap.mapId}`);
 	log(`bounds: ${JSON.stringify(basemap.bounds)}`);
 	log(`parsedbounds: ${JSON.stringify(originalBounds)}`);
-	const tilesize = render.config.tileimgsize;
-	const subtilesize = tilesize / 2;
-	const folders:string[]=[];
-	if (options.noicons) folders.push('renders2/');
+	if (options.noicons) folders.push('map_squares/');
 	if (options.icons) folders.push('map_icon_squares/');
 	for (let parentfolder of folders) {
-		const source = parentfolder+'-1';
-		const output = parentfolder+basemap.mapId;
-		log('folder', source, '->', output);
-		let bigcanvas = [ // layers 0123
-			document.createElement('canvas'),
-			document.createElement('canvas'),
-			document.createElement('canvas'),
-			document.createElement('canvas')
-		];
-		let bigctx = bigcanvas.map(x=>x.getContext('2d', { willReadFrequently: true })!);
-		let hasdrawnto=[false,false,false,false];
-		let west = originalBounds.x1,
-			south=originalBounds.y1,
-			east = originalBounds.x2,
-			north=originalBounds.y2,
-			northr = (originalBounds.y2r??0) / 16 * tilesize; // north remainder, extra space to put at the bottom to round to whole squares
-		
-		//zoom 2 size bounds - z4 is 4x larger
-		// k z2 tiles wide  * 2 (z3) * 2 (z4) * pixel size
-		let numtilesw = mappaste.width*4, numtilesh = mappaste.height*4;
-		const cnvw = numtilesw * tilesize, cnvh = numtilesh * tilesize;
-		log(`west ${west}  south ${south}  east ${east}  north ${north}  northr ${northr}  numtilesw ${numtilesw}  numtilesh ${numtilesh}  cnvw ${cnvw}  cnvh ${cnvh}`)
-		bigcanvas.forEach(x=>{
-			x.width = cnvw;
-			x.height = cnvh;
-		});
-		bigctx.forEach(x=>{
-			x.fillStyle='rgba(0,0,0,0)';
-			x.clearRect(0,0,cnvw,cnvh);
-			x.fillRect(0,0,cnvw,cnvh);
-		});
-		for (let sq of mappaste.squares) {
-			if (options.debug) log('SQUARE',sq);
-			//mapsquare - 16 z4 renders
-			// COMBOS: premade array of [0,0], [0,1], ... [3,2], [3,3]
-			for (let [xi,yi] of COMBOS) {
-				let x = sq.original_regionX*4+xi;
-				let y = sq.original_regionY*4+yi;
-				let destx = tilesize * (sq.new_regionX*4+xi-west);
-				let desty = tilesize * (sq.new_regionY*4+yi-south + 1);
-				for (let layer=0;layer<Math.max(1,sq.n_planes);layer++) {
-					progress(1);
-					let oldlayer = sq.original_plane+layer;
-					if (oldlayer>3)break;
-					let newlayer = Math.min(3,sq.new_plane+layer);
-					let sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source);
-					if (options.debug) log('SUBSQUARE', oldlayer, xi,yi, sourcefile, x, y, newlayer, destx, desty);
-					let res = await render.getFileResponse(sourcefile);
-					if (res.status == 200) {
-						let bitmap = await createImageBitmap(await res.blob());
-						bigctx[newlayer].drawImage(
+		for (let layer of [0,1,2,3]) {
+			let hasdrawnto=false;
+			const source = parentfolder+'-1',
+				output = parentfolder+basemap.mapId,
+				numtilesw = mappaste.width*4,
+				numtilesh = mappaste.height*4,
+				cnvw = numtilesw * tilesize,
+				cnvh = numtilesh * tilesize,
+				canvases_w = Math.ceil(cnvw/CANVAS_MAX_SIZE),
+				canvases_h = Math.ceil(cnvh/CANVAS_MAX_SIZE),
+				multicanvas:MultiCanvas = makeCanvasArray(CANVAS_MAX_SIZE, cnvw, cnvh, 'bigcanvas'),
+				west = originalBounds.x1,
+				south=originalBounds.y1,
+				east = originalBounds.x2,
+				north=originalBounds.y2,
+				mapAreaFactory = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize, cnvw, cnvh, west, south);
+				//mapAreaFactoryChunk = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize/2, cnvw, cnvh, west, south);
+			
+			log(`making big map of ${parentfolder}, layer ${layer} - total ${canvases_w}x${canvases_h} canvases; ${cnvw}x${cnvh}px`)
+			log('folder', source, '->', output);
+			log(`west ${west}  south ${south}  east ${east}  north ${north}  numtilesw ${numtilesw}  numtilesh ${numtilesh}  cnvw ${cnvw}  cnvh ${cnvh}`);
+			
+			for (let sq of mappaste.squares) {
+				//if (options.debug) log('SQUARE',sq);
+				//mapsquare - 16 z4 renders
+				// COMBOS: premade array of [0,0], [0,1], ... [3,2], [3,3]
+				const maxlayer = sq.original_plane+sq.n_planes,
+					newlayer = Math.min(3,sq.new_plane+layer),
+					oldlayer = Math.min(3,sq.original_plane+layer);
+				if  (newlayer === layer && oldlayer<=maxlayer) {
+					for (let [xi,yi] of COMBOS) {
+						const x = sq.original_regionX*4+xi,
+							y = sq.original_regionY*4+yi,
+							destarea = mapAreaFactory.getAreaFromMap(sq.new_regionX*4+xi,sq.new_regionY*4+yi),
+							sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source),
+							res = await render.getFileResponse(sourcefile);
+						if (options.verbosity>=2) log('SUBSQUARE', oldlayer, xi,yi, sourcefile, x, y, newlayer, destarea);
+						if (res.status == 200) {
+							const bitmap = await createImageBitmap(await res.blob());
+							multicanvas.grid[destarea.canvas.row][destarea.canvas.column].ctx.drawImage(
+								bitmap,
+								0, //source x
+								0, //source y
+								tilesize, //source width
+								tilesize, //source height
+								destarea.canvas.cellx, //dest x
+								destarea.canvas.celly, //dest y
+								tilesize, //dest width
+								tilesize //dest height
+							);
+							hasdrawnto=true;
+						}
+					}
+				}
+				progress(COMBOS.length);
+			}
+			for (let sq of mappaste.chunks) {
+				//map chunk - 1/4 of a z4 render
+				progress(1);
+				const newlayer = Math.min(3,sq.new_plane+layer),
+					maxlayer = sq.original_plane+sq.n_planes,
+					oldlayer = Math.min(3,sq.original_plane+layer);
+				if (newlayer === layer && oldlayer<=maxlayer) {
+					const x = sq.original_regionX*4 + Math.floor(sq.original_chunkX!/2),
+						y = sq.original_regionY*4 + Math.floor(sq.original_chunkY!/2),
+						destarea = mapAreaFactory.getAreaFromMap(sq.new_regionX*4 + sq.new_chunkX!/2, sq.new_regionY*4 + sq.new_chunkY!/2),
+						//destchunkx = subtilesize * Math.floor(sq.new_chunkX! / 2),
+						//destchunky = subtilesize * Math.floor(sq.new_chunkY! / 2),
+						sourcex = subtilesize * (sq.original_chunkX! % 2),
+						sourcey = subtilesize * (1-(sq.original_chunkY! % 2)),
+						sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source),
+						res = await render.getFileResponse(sourcefile);
+					if (options.verbosity>=2) log('CHUNK', sq, sourcefile, x, y, sourcex, sourcey, destarea);
+					if (res.status==200) {
+						const bitmap = await createImageBitmap(await res.blob());
+						multicanvas.grid[destarea.canvas.row][destarea.canvas.column].ctx.drawImage(
 							bitmap,
-							0, //source x
-							0, //source y
-							tilesize, //source width
-							tilesize, //source height
-							destx, //dest x
-							cnvh - desty, //dest y
-							tilesize, //dest width
-							tilesize //dest height
+							sourcex, //source x
+							sourcey, //source y
+							subtilesize, //source width
+							subtilesize, //source height
+							destarea.canvas.cellx, //dest x
+							destarea.canvas.celly+subtilesize, //dest y
+							subtilesize, //dest width
+							subtilesize //dest height
 						);
-						if (options.debug) log('drawing subsquare to', newlayer, destx, cnvh-desty)
-						hasdrawnto[newlayer]=true;
+						hasdrawnto=true;
 					}
 				}
 			}
-		}
-		for (let sq of mappaste.chunks) {
-			//map chunk - 1/4 of a z4 render
-			let x = sq.original_regionX*4 + Math.floor(sq.original_chunkX!/2);
-			let y = sq.original_regionY*4 + Math.floor(sq.original_chunkY!/2);
-			let destx = (sq.new_regionX*4 + sq.new_chunkX!/2 - west);
-			let desty = (sq.new_regionY*4 + sq.new_chunkY!/2 - south);
-			for (let layer=0;layer<Math.max(1,sq.n_planes);layer++) {
-				progress(1);
-				let oldlayer = sq.original_plane+layer;
-				if (oldlayer>3)break;
-				let newlayer = Math.min(3,sq.new_plane+layer);
-				let sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source);
-				if (options.debug) log('CHUNK', sq, sourcefile, x, y, destx, desty);
-				let res = await render.getFileResponse(sourcefile);
-				if (res.status==200) {
-					let bitmap = await createImageBitmap(await res.blob());
-					let sourcex = subtilesize * (sq.original_chunkX! % 2),
-						sourcey = subtilesize * (1-(sq.original_chunkY! % 2)),
-						destx2 = tilesize*destx,
-						desty2 = cnvh-northr - tilesize*(desty);
-					if (options.debug) log('drawing chunk: sourcex,sourcey to destx,desty', sourcex, sourcey, destx2, desty2);
-					bigctx[newlayer].drawImage(
-						bitmap,
-						sourcex, //source x
-						sourcey, //source y
-						subtilesize, //source width
-						subtilesize, //source height
-						destx2, //dest x
-						desty2, //dest y
-						subtilesize, //dest width
-						subtilesize //dest height
-					);
-					hasdrawnto[newlayer]=true;
-				}
+			if (options.verbosity>=1) {
+				const tbl = addCanvasTable(multicanvas);
+				debugger;
 			}
-		}
-		if (options.debug) document.body.prepend(...bigcanvas);
-		//debugger;//return
-		// everything drawn to the 4 canvases
-		const savingcanvas = document.createElement('canvas');
-		savingcanvas.height=tilesize;
-		savingcanvas.width=tilesize;
-		const savingctx = savingcanvas.getContext('2d', {willReadFrequently:true})!;
-		savingctx.fillStyle='rgba(0,0,0,0)';
-		if (options.debug) document.body.prepend(savingcanvas);
-		for (let layer of [0,1,2,3]) {
-			if (!hasdrawnto[layer])continue;
-			let cnv:HTMLCanvasElement = bigcanvas[layer],
-				ctx:CanvasRenderingContext2D = bigctx[layer],
+			if (!hasdrawnto) continue;
+			const savingcanvasobj = makeCanvas(tilesize,tilesize),
+				savingcanvas = savingcanvasobj.cnv,
+				savingctx = savingcanvasobj.ctx;
+			if (options.verbosity>=2) document.body.prepend(savingcanvas);
+			let multicnvs:MultiCanvas = multicanvas,
 				westworking = west,
 				southworking = south,
 				numtilesw2 = numtilesw,
 				numtilesh2 = numtilesh;
 			for (let zoom=4; zoom>-6; zoom--) {
-				for (let x=0;x<cnv.width;x+=tilesize) {
-					for (let y=0;y<cnv.height;y+=tilesize) {
+				log(`saving zoom ${zoom}`);
+				const mapAreaFactorySaving = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize, multicnvs.width, multicnvs.height, westworking, southworking);
+				let numsaved=0,numblack=0;
+				//for (let y=0;y<multicnvs.height;y+=tilesize) {
+					//for (let x=0;x<multicnvs.width;x+=tilesize) {
+				for (let y=0; y<=numtilesh2; y++) {
+					for (let x=0; x<=numtilesw2; x++) {
 						progress(1);
-						let outfilename = render.makeFileName(layer, zoom, x/tilesize+westworking, y/tilesize+southworking, 'png', output);
+						const sourcearea = mapAreaFactorySaving.getAreaFromMapOffset(x,y);
+						if (options.verbosity>=2) log('savingcanvas', y,x, sourcearea);
+						if (sourcearea.canvas.row >= multicnvs.rows || sourcearea.canvas.column >= multicnvs.cols) continue;
+						const cnv = multicnvs.grid[sourcearea.canvas.row][sourcearea.canvas.column],
+							outfilename = render.makeFileName(layer, zoom, sourcearea.map.x, sourcearea.map.y, 'png', output);
 						savingctx.clearRect(0,0,tilesize,tilesize);
-						savingctx.drawImage(cnv,x,cnv.height-(y+tilesize),tilesize,tilesize, 0,0,tilesize,tilesize);
-						let imgdata = savingctx.getImageData(0,0,tilesize,tilesize);
+						savingctx.drawImage(cnv.cnv, sourcearea.canvas.cellx, sourcearea.canvas.celly, tilesize,tilesize, 0,0,tilesize,tilesize);
+						const imgdata = savingctx.getImageData(0,0,tilesize,tilesize);
 						let isAllBlack = true;
-						for (let i=0;i<imgdata.data.length;i+=4) {
+						for (let i=0;i<imgdata.data.length&&isAllBlack;i+=4) {
+							//isAllBlack = Math.max(...imgdata.data) === 0;
 							isAllBlack = imgdata.data[i]===0 && imgdata.data[i+1]===0 && imgdata.data[i+2]===0 && imgdata.data[i+3]===0;
 							//imagedata.data is a flat array of r g b a for each pixel
-							if (!isAllBlack) break;
+							//if (!isAllBlack) break;
 						}
 						if (isAllBlack){
-							if (options.debug) log('ALL BLACK', outfilename, x,cnv.height-(y+tilesize));
+							if (options.verbosity>=2) log('ALL BLACK', outfilename);
+							numblack++;
 						} else {
 							//savingctx.drawImage(bitmap,0,0);
-							await render.saveFile(outfilename, -1, await canvasToImageFile(savingcanvas,'png',0.9));
-							if (options.debug) log('saved', outfilename, x,cnv.height-(y+tilesize));
+							numsaved++;
+							if (!options.nosave) await render.saveFile(outfilename, -1, await canvasToImageFile(savingcanvas,'png',0.9));
+							if (options.verbosity>=2) log('saved', outfilename);
+						}
+						if ((numblack + numsaved) % 200 == 0) {
+							log(`saved ${numsaved} files; skipped ${numblack} blank files`);
 						}
 					}
 				}
-				if (zoom == -5)break;
-				numtilesw2 = Math.ceil(numtilesw2/2);
-				numtilesh2 = Math.ceil(numtilesh2/2);
-				let newwest = Math.floor(westworking/2);
-				let newsouth = Math.floor(southworking/2);
-				let westdiff = westworking-newwest*2;
-				let southdiff = southworking-newsouth*2;
-				const smallercanvas = document.createElement('canvas');
-				smallercanvas.width = numtilesw2*tilesize;
-				smallercanvas.height = numtilesh2*tilesize;
-				if (options.debug) document.body.prepend(smallercanvas);
-				const smallerctx = smallercanvas.getContext('2d',{willReadFrequently:true})!;
-				let yoffset = 0;
-				if (cnv.height/2<smallercanvas.height) {
-					yoffset = tilesize/2;
+				log(`FINISHED saving ${zoom}; saved ${numsaved} files; skipped ${numblack} blank files`);
+				if (zoom == -5) {
+					multicnvs.grid.forEach(row=>row.forEach(cell=>cell.cnv.remove()));
+					break;
+				};
+				const newwest = (westworking/2),
+					newsouth = (southworking/2),
+					westdiff = westworking-Math.floor(newwest)*2,
+					southdiff = southworking-Math.floor(newsouth)*2,
+					numtilesw_new = Math.ceil(numtilesw2/2),
+					numtilesh_new = Math.ceil(numtilesh2/2),
+					newwidth = numtilesw_new * tilesize,
+					newheight = numtilesh_new * tilesize,
+					smallermulticnv = makeCanvasArray(CANVAS_MAX_SIZE, newwidth, newheight, (newwidth>3000||newheight>3000)?'bigcanvas':'');
+				if (options.verbosity>=1) log(`oldsize ${multicnvs.width}x${multicnvs.height}px,  ${numtilesw2}x${numtilesh2} tiles; canvases rows=${multicnvs.rows},cols=${multicnvs.cols}`, '  ->  ', `newsize ${smallermulticnv.width}x${smallermulticnv.height},  ${numtilesw_new}x${numtilesh_new} tiles; canvases rows=${smallermulticnv.rows},cols=${smallermulticnv.cols}`, `oldwest ${westworking} -> newwest ${newwest};  oldsouth ${southworking} -> newsouth ${newsouth};  westdiff ${westdiff}, southdiff ${southdiff}`);
+				if (multicnvs.rows*multicnvs.cols === 1) {
+					// prior we only had one canvas so we can be a little simpler
+					const destx = 0,//westdiff * tilesize/2,
+						oldcnv = multicnvs.grid[0][0].cnv,
+						desty = smallermulticnv.height - oldcnv.height/2;
+					smallermulticnv.grid[0][0].ctx.drawImage(
+						multicnvs.grid[0][0].cnv,
+						//source topleft,size
+						0,0,oldcnv.width,oldcnv.height,
+						//dest topleft,size
+						destx, desty, oldcnv.width/2,oldcnv.height/2
+
+					);
+					if (options.verbosity>=1) log('one canvas to one canvas', `old y=0,x=0 - w=${oldcnv.width}px,h=${oldcnv.height}px`, '  ->  ', `new y=0,x=0 - dx=${destx}px,dy=${desty}px`)
+				} else {
+					// we had multiple canvases before
+					// scale 2x2 canvases into 1x1
+					for (let ri=0; ri<multicnvs.rows; ri++) {
+						const frombottom = CANVAS_MAX_SIZE*ri/2,
+							newcnvy = Math.floor(ri / 2);
+						//let frombottom = (multicnvs.rows-1-ri) * Math.min(smallermulticnv.height,CANVAS_MAX_SIZE)/2 + southdiff * tilesize/2,
+						//	newcnvy =  smallermulticnv.rows-1 - Math.floor((multicnvs.rows-ri-1)/2);
+						for (let ci=0; ci<multicnvs.cols; ci++) {
+							const oldcnv = multicnvs.grid[ri][ci],
+								fromleft = ci * CANVAS_MAX_SIZE/2,
+								newcnvx = Math.floor(ci/2),
+								newcellx = fromleft % CANVAS_MAX_SIZE + westdiff*tilesize/2,
+								newcnv = smallermulticnv.grid[newcnvy][newcnvx],
+								newcelly = newcnv.cnv.height - oldcnv.cnv.height/2 - (frombottom % CANVAS_MAX_SIZE);
+							newcnv.ctx.drawImage(
+								oldcnv.cnv,
+								0,0, oldcnv.cnv.width, oldcnv.cnv.height,
+								newcellx,newcelly, oldcnv.cnv.width/2, oldcnv.cnv.height/2
+							);
+							if (options.verbosity>=1) log(`old y=${ri},x=${ci} - w=${oldcnv.cnv.width}px,h=${oldcnv.cnv.height}px`, '  ->  ', `new y=${newcnvy},x=${newcnvx} - dx=${newcellx}px,dy=${newcelly}px`, '  ->  ', `frombottom ${frombottom}, fromleft ${fromleft}`)
+
+						}
+					}
 				}
-				log('shrinking canvas', smallercanvas.width, smallercanvas.height, newwest, newsouth, westdiff, southdiff, westdiff*tilesize/2, smallercanvas.height-(1-southdiff)*tilesize/2, yoffset);
-				//yoffset = smallercanvas.height-(1-southdiff)*tilesize/2;
-				smallerctx.drawImage(cnv, westdiff*tilesize/2, yoffset, cnv.width/2, cnv.height/2);
-				cnv=smallercanvas;
-				ctx=smallerctx;
+				
+				if (options.verbosity>=1) log('shrinking canvas', newwidth, newheight, newwest, newsouth, westdiff, southdiff);
+				multicnvs.grid.forEach(row=>row.forEach(cell=>cell.cnv.remove()));//remove from dom so they can be GC'd
+				multicnvs=smallermulticnv;
 				westworking = newwest;
 				southworking = newsouth;
+				numtilesw2=numtilesw_new;
+				numtilesh2=numtilesh_new;
+				if (options.verbosity>=1) {
+					const tbl = addCanvasTable(multicnvs);
+					debugger;
+				}
 			}
+			if (options.verbosity>=1) debugger;
 		}
-		if (options.debug) debugger;
 	}
 	progress(0,true);
 };
 
 
 (async () => {
-	let res = await cmdts.runSafely(cmd, cliArguments());
+	const res = await cmdts.runSafely(cmd, cliArguments());
 	let code = 0;
 	if (res._tag == "error") {
 		log('ERROR', res.error.config.message);

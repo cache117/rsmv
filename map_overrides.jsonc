@@ -279,6 +279,55 @@
 				"new_regionX": 54,
 				"new_regionY": 75
 			}
+		},
+		// ashdale
+		{
+			"mapId": 28,
+			"content":{
+				"n_planes": 4,
+				"original_plane": 0,
+				"new_plane": 0,
+				"original_regionX": 38,
+				"original_regionY": 41,
+				"new_regionX": 38,
+				"new_regionY": 41
+			}
+		},
+		{
+			"mapId": 28,
+			"content":{
+				"n_planes": 4,
+				"original_plane": 0,
+				"new_plane": 0,
+				"original_regionX": 39,
+				"original_regionY": 41,
+				"new_regionX": 39,
+				"new_regionY": 41
+			}
+		},
+		{
+			"mapId": 28,
+			"content":{
+				"n_planes": 4,
+				"original_plane": 0,
+				"new_plane": 0,
+				"original_regionX": 39,
+				"original_regionY": 40,
+				"new_regionX": 39,
+				"new_regionY": 40
+			}
+		},
+		{
+			"mapId": 28,
+			"content":{
+				"n_planes": 4,
+				"original_plane": 0,
+				"new_plane": 0,
+				"original_regionX": 38,
+				"original_regionY": 40,
+				"new_regionX": 38,
+				"new_regionY": 40
+			}
 		}
 	],
 

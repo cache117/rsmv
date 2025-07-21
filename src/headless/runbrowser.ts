@@ -12,8 +12,9 @@ app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
 app.commandLine.appendSwitch("disable-background-timer-throttling");
 app.commandLine.appendSwitch("js-flags", "--expose-gc");
 //these flags only make it worse right now since it prevents a full crash when buffer allocs start failing
-app.commandLine.appendSwitch("js-flags", "--max-old-space-size=16384");
-app.commandLine.appendSwitch("js-flags", "--max-heap-size=16384");
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=32768");
+app.commandLine.appendSwitch("js-flags", "--max-semi-space-size=4096");
+app.commandLine.appendSwitch("js-flags", "--max-heap-size=32768");
 //needed to read map imagedata from runeapps
 app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 
