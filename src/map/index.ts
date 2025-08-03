@@ -829,7 +829,7 @@ const rendermode3d: RenderMode<"3d" | "minimap"> = function (engine, config, cnf
 								}
 							})));
 							let locs = chunks.flatMap(ch => ch.model.loaded!.chunk?.locs ?? []);
-							let svg = await svgfloor(engine, grid, locs, worldrect, thiscnf.level, thiscnf.pxpersquare, !!thiscnf.overlaywalls, !!thiscnf.overlayicons, true);
+							let svg = await svgfloor(engine, grid, locs, worldrect, thiscnf.level, thiscnf.pxpersquare, !!thiscnf.overlaywalls, !!thiscnf.overlayicons, false);
 							overlayimg = new Image();
 							overlayimg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
 							await overlayimg.decode();

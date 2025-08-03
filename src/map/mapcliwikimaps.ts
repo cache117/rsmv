@@ -3,8 +3,7 @@ import { cliArguments, filesource } from "../cliparser";
 import * as cmdts from "cmd-ts";
 import { CLIScriptFS, CLIScriptOutput } from "../scriptrunner";
 import { Mapconfig, runMapRender } from ".";
-import { MapRender, MapRenderFsBacked, parseMapConfigObject } from "./backends";
-import { MapRect } from "../3d/mapsquare";
+import { MapRenderFsBacked, parseMapConfigObject } from "./backends";
 import fs from "fs/promises";
 import v8 from 'node:v8';
 import log from '../loggerwithtime';
@@ -13,7 +12,7 @@ import { cacheMajors } from "../constants";
 import { parse } from "../opdecoder";
 import path from "path";
 import { applyOverrides } from "./mapoverrides";
-import { HemisphereLight } from "three";
+import {env} from "node:process";
 
 type BaseMap = {
 	mapId:number,
@@ -76,7 +75,7 @@ isNotNullUndefOrEmpty = (x:any):boolean => {
 makeBaseMap=(mapid:string, area:MapPaste, zone:MapZone):BaseMap=>{
 	let west = 100*64, south = 200*64, north = 0, east = 0,
 		west2 = 100*64, south2 = 200*64, north2 = 0, east2 = 0;
-	for (let sq of area.squares) {
+	for (const sq of area.squares) {
 		west = Math.min(west, 64*sq.new_regionX);
 		south = Math.min(south, 64*sq.new_regionY);
 		east = Math.max(east, 64*(1+sq.new_regionX));
@@ -87,7 +86,7 @@ makeBaseMap=(mapid:string, area:MapPaste, zone:MapZone):BaseMap=>{
 		north2 = Math.max(north2, 64*(1+sq.original_regionY));
 	}
 	if (area.chunks) {
-		for (let ch of area.chunks) {
+		for (const ch of area.chunks) {
 			west = Math.min(west, 64*ch.new_regionX + 8*ch.new_chunkX);
 			south = Math.min(south, 64*ch.new_regionY + 8*ch.new_chunkY);
 			east = Math.max(east, 64*ch.new_regionX + 8*(1+ch.new_chunkX));
@@ -124,8 +123,7 @@ const cmd = cmdts.command({
 
 		rendermap: cmdts.flag({long: 'rendermap'}), //enable to render the map
 		domip: cmdts.flag({long: 'domip'}), //enable to do a mip
-		mapicons: cmdts.flag({long: 'mapicons'}), //enable to do map with icons
-		mapnoicons: cmdts.flag({long: 'mapnoicons'}), //enable to do map without icons
+		domipdef: cmdts.flag({long:'domipdef'}),
 		bm: cmdts.multioption({long:'bm', type:cmdts.optional(cmdts.array(cmdts.number))}),
 		bmfrom: cmdts.option({long:'bmfrom', type:cmdts.optional(cmdts.number)}),
 		debug: cmdts.flag({long:'verbose'}),
@@ -137,16 +135,17 @@ const cmd = cmdts.command({
 		duration_map[-100] = {id:-100,start:Date.now()};
 		globalThis.duration_map = duration_map;
 		let onlybasemaps=false;
+		console.log(env);
 		const sheet = document.createElement('style'),
 			output = new CLIScriptOutput(),
 			source = await args.source(),
-			outdir = args.outdir ?? 'extract_map/renders',
+			outdir = args.outdir === undefined ? (env.npm_package_config_mapping_outdir === undefined ? 'extract_map/renders' : env.npm_package_config_mapping_outdir) : args.outdir,
 			verbosity = args.debug ? (args.verydebug ? 2 : 1) : 0,
 			basemapidstodo:number[] = [];
 		sheet.innerHTML = 'canvas {background-color:black;margin-bottom:1em;} #mipprogressdiv {display:flex;} #mipprogressdiv div {white-space:pre-line;} #mipprogress-nodes:before {content:"NODE PROGRESS"} #mipprogress-msgs:before {content:"MESSAGES"} canvas.bigcanvas{zoom:10%;}';
 		document.head.appendChild(sheet)
-		log('ARGUMENTS:', `\noutput folder: ${args.outdir}\nrender map: ${args.rendermap}\nperform mip: ${args.domip}\nmap with icons: ${args.mapicons}\nmap without icons: ${args.mapnoicons}`);
-		if ((!args.rendermap && !args.domip) || (!args.mapicons && !args.mapnoicons)) {
+		log('ARGUMENTS:', `\noutput folder: ${outdir}\nrender map: ${args.rendermap}\nperform mip: ${args.domip}`);
+		if ((!args.rendermap && !args.domip && !args.domipdef)) {
 			log('So we are just generating basemaps.json');
 			onlybasemaps=true;
 		} else {
@@ -154,9 +153,7 @@ const cmd = cmdts.command({
 			if (args.rendermap && args.domip) str+='mapping and mipping ';
 			else if (args.rendermap) str+='mapping '
 			else str+='mipping ';
-			if (args.mapicons && args.mapnoicons) str+='both icons and no icons';
-			else if (args.mapicons) str+='just icons';
-			else str+='just no icons';
+			if (args.domipdef) str+=' ALSO adding icons to -1';
 			log(str);
 		}
 		if (args.debug) {
@@ -168,6 +165,7 @@ const cmd = cmdts.command({
 				log('NO SAVING');
 			}
 		}
+		if (outdir===undefined)debugger;
 		const scriptfs = new CLIScriptFS(outdir);
 		await fs.access(outdir);//check if we're allowed to write the outdir
 		log('creating basemaps')
@@ -204,7 +202,7 @@ const cmd = cmdts.command({
 			args.bm.forEach(v=>{if (!basemapidstodo.includes(v)) basemapidstodo.push(v);});
 		}
 		if (args.bmfrom === undefined && (args.bm===undefined || args.bm.length === 0)) {
-			basemaps.forEach(v=>basemapidstodo.push(v.mapId));
+			basemaps.forEach(v=>{if (v.mapId!==-1) basemapidstodo.push(v.mapId)});
 		}
 		duration_map[basemap_default.mapId] = {id:-1, start: Date.now()};
 		const render_out = `map_squares/${basemap_default.mapId}`,
@@ -219,35 +217,25 @@ const cmd = cmdts.command({
 				"area": boundsToCoordsStr(basemap_default.bounds),
 				"layers": [] 
 			};
-		if (args.mapnoicons) {
-			for (let i=0;i<=3;i++) {
-				conf.layers.push({
-					"name": render_out,
-					"mode": "3d",
-					"format": "png",
-					"level": i,
-					"pxpersquare": 16,
-					"dxdy": 0,
-					"dzdy": 0,
-					"overlaywalls": true,
-					"overlayicons": false
-				})
-			}
-		}
-		if (args.mapicons) {
-			for (let i=0;i<=3;i++) {
-				conf.layers.push({
-					"name": render_icons_out,
-					"mode": "3d",
-					"format": "png",
-					"level": i,
-					"pxpersquare": 16,
-					"dxdy": 0,
-					"dzdy": 0,
-					"overlaywalls": true,
-					"overlayicons": true
-				})
-			}
+		for (let i=0;i<=3;i++) {
+			conf.layers.push({
+				"name": render_out,
+				"mode": "3d",
+				"format": "png",
+				"level": i,
+				"pxpersquare": 16,
+				"dxdy": 0,
+				"dzdy": 0,
+				"overlaywalls": true,
+				"overlayicons": false
+			})
+			conf.layers.push({
+				"name": `maplabels/${i}`,
+				"mode": "maplabels",
+				"level": i,
+				"pxpersquare": 1,
+				"usegzip":false
+			})
 		}
 
 		const config = new MapRenderFsBacked(scriptfs, parseMapConfigObject(conf));
@@ -257,31 +245,34 @@ const cmd = cmdts.command({
 		}
 		duration_map[basemap_default.mapId].end = Date.now();
 		duration_map[basemap_default.mapId].dur = duration_map[basemap_default.mapId].end! - duration_map[basemap_default.mapId].start;
+		let opts = {
+			verbosity:verbosity,
+			nosave:args.debug&&args.nosave
+		};
 		if (args.domip) {
 			globalThis.totalToMip=0;
 			globalThis.mipLenMap={};
-			for (let [mapId,val] of Object.entries(worldmappastes)) {
+			for (const [mapId,val] of Object.entries(worldmappastes)) {
 				if (mapId === '-1')continue;
 				if (!basemapidstodo.includes(parseInt(mapId))) continue;
-				let total = 0;
-				let h = val.height*4, w=val.width*4;
+				let total = 0, h = val.height*4, w=val.width*4;
 				total+=(h*w);
 				for (let z=4; z>-6; z--) {
 					h = Math.ceil(h/2);
 					w = Math.ceil(w/2);
 					total+=(h*w);
 				}
+				total*=2;
 				if (val.squares) {
-					for (let sq of val.squares) {
+					for (const sq of val.squares) {
 						total += Math.max(1, sq.n_planes)*16;
 					}
 				}
 				if (val.chunks) {
-					for (let chunk of val.chunks) {
+					for (const chunk of val.chunks) {
 						total += Math.max(1, chunk.n_planes);
 					}
 				}
-				total *= ((args.mapicons?1:0)+(args.mapnoicons?1:0));
 				globalThis.mipLenMap[mapId] = total;
 				globalThis.totalToMip+=total;
 			}
@@ -300,15 +291,9 @@ const cmd = cmdts.command({
 			document.body.prepend(progressDivW);
 			globalThis.progressDiv = progressDiv;
 			globalThis.progressDiv2 = progressDiv2;
-			progressDiv.innerText = `${globalThis.totalToMip} things to process!`
+			progressDiv.innerText = `\n${globalThis.totalToMip} things to process!`
 			progress2('Starting mip');
-			let opts = {
-				verbosity:verbosity,
-				nosave:args.debug&&args.nosave,
-				noicons:args.mapnoicons,
-				icons:args.mapicons
-			};
-			for (let bm of basemaps) {
+			for (const bm of basemaps) {
 				if (basemapidstodo.includes(bm.mapId)) {
 					progress2(`mipping mapID=${bm.mapId}, ${globalThis.mipLenMap[bm.mapId]} nodes`);
 					duration_map[bm.mapId] = {id:bm.mapId, start:Date.now()};
@@ -320,16 +305,19 @@ const cmd = cmdts.command({
 				}
 			}
 		}
+		if (args.domipdef) {
+			await iconsAndMipDefault(config, 256, opts);
+		}
 		duration_map[-100].end = Date.now();
 		duration_map[-100].dur = duration_map[-100].end! - duration_map[-100].start;
-		for (let {id,start,end,dur} of Object.values(duration_map).sort((a,b)=>a.id-b.id)) {
+		for (const {id,start,end,dur} of Object.values(duration_map).sort((a,b)=>a.id-b.id)) {
 			let first:number|string = id;
 			if (id === -100) {
 				first = 'TOTAL';
 			}
 			log(first, (new Date(start)).toISOString(), '->', (new Date(end!)).toISOString(), ':::', (dur!/1000).toFixed(1));
 		}
-		progress2('Finished!');
+		//progress2('Finished!');
 	}
 });
 const progress = (i?:number, forceupdate?:boolean)=>{
@@ -386,10 +374,10 @@ makeCanvasArray = (maxsize:number, w:number, h:number, className:string):MultiCa
 },
 addCanvasTable = (canvases:MultiCanvas):HTMLTableElement => {
 	const tbl = document.createElement('table');
-	for (let cnvrow of canvases.grid) {
+	for (const cnvrow of canvases.grid) {
 		const tr = document.createElement('tr');
 		tbl.prepend(tr);
-		for (let cnvcell of cnvrow) {
+		for (const cnvcell of cnvrow) {
 			const td = document.createElement('td');
 			tr.append(td);
 			td.append(cnvcell.cnv);
@@ -551,141 +539,249 @@ class MapAreaFactory {
 	}
 }
 
+const saveCanvases = (canvases:MultiCanvas):ImageData[] => {
+	const savedstate:ImageData[]=[];
+	for (const {cnv,ctx} of canvases.grid.flat(1)) {
+		savedstate.push(ctx.getImageData(0,0,cnv.width,cnv.height));
+	}
+	return savedstate;
+},
+restoreCanvases = (canvases:MultiCanvas, data:ImageData[])=> {
+	const flat = canvases.grid.flat(1);
+	for (const [i,id] of data.entries()) {
+		flat[i].ctx.putImageData(id,0,0);
+	}
+};
+
 
 
 const COMBOS = (()=>{
 	const arr:number[][] = [];
-	for (let i of [0,1,2,3]) {
-		for (let j of [0,1,2,3]) {
+	for (const i of [0,1,2,3]) {
+		for (const j of [0,1,2,3]) {
 			arr.push([i,j]);
 		}
 	}
 	return arr;
 })(),
 COMBOS2 = [[0,0],[0,1],[1,0],[1,1]];
+type MapIconImageConfig = {
+	id:number,
+	src:string,
+	width:number,
+	height:number,
+	uses:{x:number, z:number, regionX?:number, regionY?:number}[]
+};
+type MapIconImage = {
+	id:number,
+	image:HTMLImageElement
+};
+const iconImages:{[id:number]:MapIconImage} = {},
+getIconImage=async (cnf:MapIconImageConfig):Promise<MapIconImage>=>{
+	if (iconImages[cnf.id]) return iconImages[cnf.id];
+	const out = {
+		id: cnf.id,
+		image: new Image(cnf.width, cnf.height)
+	};
+	out.image.src = cnf.src;
+	await out.image.decode();
+	iconImages[cnf.id]=out;
+	document.body.prepend(out.image);
+	return out;
+},
+getIconImage2=async (id:number, cnf:{src:string,height:number,width:number}):Promise<MapIconImage>=>{
+	if (iconImages[id]) return iconImages[id];
+	const out = {
+		id: id,
+		image: new Image(cnf.width, cnf.height)
+	};
+	out.image.src = cnf.src;
+	await out.image.decode();
+	iconImages[id]=out;
+	document.body.prepend(out.image);
+	return out;
+};
 
-const mipMapID = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, options:{verbosity:number,icons:boolean,noicons:boolean,nosave:boolean})=>{
+const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapPaste, options:{verbosity:number,nosave:boolean})=>{
 	const originalBounds = boundsToCoords(basemap.bounds),
 		tilesize = render.config.tileimgsize,
 		CANVAS_MAX_SIZE = tilesize * Math.floor(CANVAS_TRUE_MAX_SIZE/tilesize),
 		subtilesize = tilesize / 2,
-		folders:string[]=[];
+		noiconsfolder = 'map_squares/',
+		iconsfolder = 'map_icon_squares/';
+
+
+		
 	log(`mipping mapid ${basemap.mapId}`);
 	log(`bounds: ${JSON.stringify(basemap.bounds)}`);
 	log(`parsedbounds: ${JSON.stringify(originalBounds)}`);
-	if (options.noicons) folders.push('map_squares/');
-	if (options.icons) folders.push('map_icon_squares/');
-	for (let parentfolder of folders) {
-		for (let layer of [0,1,2,3]) {
-			let hasdrawnto=false;
-			const source = parentfolder+'-1',
-				output = parentfolder+basemap.mapId,
-				numtilesw = mappaste.width*4,
-				numtilesh = mappaste.height*4,
-				cnvw = numtilesw * tilesize,
-				cnvh = numtilesh * tilesize,
-				canvases_w = Math.ceil(cnvw/CANVAS_MAX_SIZE),
-				canvases_h = Math.ceil(cnvh/CANVAS_MAX_SIZE),
-				multicanvas:MultiCanvas = makeCanvasArray(CANVAS_MAX_SIZE, cnvw, cnvh, 'bigcanvas'),
-				west = originalBounds.x1,
-				south=originalBounds.y1,
-				east = originalBounds.x2,
-				north=originalBounds.y2,
-				mapAreaFactory = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize, cnvw, cnvh, west, south);
-				//mapAreaFactoryChunk = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize/2, cnvw, cnvh, west, south);
-			
-			log(`making big map of ${parentfolder}, layer ${layer} - total ${canvases_w}x${canvases_h} canvases; ${cnvw}x${cnvh}px`)
-			log('folder', source, '->', output);
-			log(`west ${west}  south ${south}  east ${east}  north ${north}  numtilesw ${numtilesw}  numtilesh ${numtilesh}  cnvw ${cnvw}  cnvh ${cnvh}`);
-			
-			for (let sq of mappaste.squares) {
-				//if (options.debug) log('SQUARE',sq);
-				//mapsquare - 16 z4 renders
-				// COMBOS: premade array of [0,0], [0,1], ... [3,2], [3,3]
-				const maxlayer = sq.original_plane+sq.n_planes,
-					newlayer = Math.min(3,sq.new_plane+layer),
-					oldlayer = Math.min(3,sq.original_plane+layer);
-				if  (newlayer === layer && oldlayer<=maxlayer) {
-					for (let [xi,yi] of COMBOS) {
-						const x = sq.original_regionX*4+xi,
-							y = sq.original_regionY*4+yi,
-							destarea = mapAreaFactory.getAreaFromMap(sq.new_regionX*4+xi,sq.new_regionY*4+yi),
-							sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source),
-							res = await render.getFileResponse(sourcefile);
-						if (options.verbosity>=2) log('SUBSQUARE', oldlayer, xi,yi, sourcefile, x, y, newlayer, destarea);
-						if (res.status == 200) {
-							const bitmap = await createImageBitmap(await res.blob());
-							multicanvas.grid[destarea.canvas.row][destarea.canvas.column].ctx.drawImage(
-								bitmap,
-								0, //source x
-								0, //source y
-								tilesize, //source width
-								tilesize, //source height
-								destarea.canvas.cellx, //dest x
-								destarea.canvas.celly, //dest y
-								tilesize, //dest width
-								tilesize //dest height
-							);
-							hasdrawnto=true;
-						}
+	for (const layer of [0,1,2,3]) {
+		let hasdrawnto=false;
+		const source = noiconsfolder+'-1',
+			output = noiconsfolder+basemap.mapId,
+			iconsoutput = iconsfolder+basemap.mapId,
+			numtilesw = mappaste.width*4,
+			numtilesh = mappaste.height*4,
+			cnvw = numtilesw * tilesize,
+			cnvh = numtilesh * tilesize,
+			canvases_w = Math.ceil(cnvw/CANVAS_MAX_SIZE),
+			canvases_h = Math.ceil(cnvh/CANVAS_MAX_SIZE),
+			multicanvas:MultiCanvas = makeCanvasArray(CANVAS_MAX_SIZE, cnvw, cnvh, 'bigcanvas'),
+			west = originalBounds.x1,
+			south=originalBounds.y1,
+			east = originalBounds.x2,
+			north=originalBounds.y2,
+			mapAreaFactory = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize, cnvw, cnvh, west, south),
+			mapIconsUsed:{[id:number]:MapIconImageConfig} = {};
+			//mapAreaFactoryChunk = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize/2, cnvw, cnvh, west, south);
+		
+		log(`making big map, layer ${layer} - total ${canvases_w}x${canvases_h} canvases; ${cnvw}x${cnvh}px`)
+		log('folder', source, '->', output);
+		log(`west ${west}  south ${south}  east ${east}  north ${north}  numtilesw ${numtilesw}  numtilesh ${numtilesh}  cnvw ${cnvw}  cnvh ${cnvh}`);
+		
+		for (const sq of mappaste.squares) {
+			//if (options.debug) log('SQUARE',sq);
+			//mapsquare - 16 z4 renders
+			// COMBOS: premade array of [0,0], [0,1], ... [3,2], [3,3]
+			const maxlayer = sq.original_plane+sq.n_planes-1,
+				newlayer = Math.min(3,sq.new_plane+layer),
+				oldlayer = Math.min(3,sq.original_plane+layer);
+			try {
+				const data:MapIconImageConfig[] = JSON.parse(await render.fs.readFileText(`maplabels/${sq.original_plane}/${sq.original_regionX}-${sq.original_regionY}.json`));
+				for (const conf of data) {
+					const newuse:MapIconImageConfig['uses'] = [];
+					for (const use of conf.uses) {
+						newuse.push({
+							x: use.x,
+							z: use.z,
+							regionX: sq.new_regionX,
+							regionY: sq.new_regionY
+						});
+					}
+					if (mapIconsUsed[conf.id]) {
+						for (const use of newuse) mapIconsUsed[conf.id].uses.push(use);
+					} else {
+						conf.uses=newuse;
+						mapIconsUsed[conf.id]=conf;
 					}
 				}
-				progress(COMBOS.length);
+			} catch(e) {
+				//nothing
+					console.log(e);
+					//debugger;
 			}
-			for (let sq of mappaste.chunks) {
-				//map chunk - 1/4 of a z4 render
-				progress(1);
-				const newlayer = Math.min(3,sq.new_plane+layer),
-					maxlayer = sq.original_plane+sq.n_planes,
-					oldlayer = Math.min(3,sq.original_plane+layer);
-				if (newlayer === layer && oldlayer<=maxlayer) {
-					const x = sq.original_regionX*4 + Math.floor(sq.original_chunkX!/2),
-						y = sq.original_regionY*4 + Math.floor(sq.original_chunkY!/2),
-						destarea = mapAreaFactory.getAreaFromMap(sq.new_regionX*4 + sq.new_chunkX!/2, sq.new_regionY*4 + sq.new_chunkY!/2),
-						//destchunkx = subtilesize * Math.floor(sq.new_chunkX! / 2),
-						//destchunky = subtilesize * Math.floor(sq.new_chunkY! / 2),
-						sourcex = subtilesize * (sq.original_chunkX! % 2),
-						sourcey = subtilesize * (1-(sq.original_chunkY! % 2)),
+			if (newlayer === layer && oldlayer<=maxlayer) {
+				for (const [xi,yi] of COMBOS) {
+					const x = sq.original_regionX*4+xi,
+						y = sq.original_regionY*4+yi,
+						destarea = mapAreaFactory.getAreaFromMap(sq.new_regionX*4+xi,sq.new_regionY*4+yi),
 						sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source),
 						res = await render.getFileResponse(sourcefile);
-					if (options.verbosity>=2) log('CHUNK', sq, sourcefile, x, y, sourcex, sourcey, destarea);
-					if (res.status==200) {
+					if (options.verbosity>=2) log('SUBSQUARE', oldlayer, xi,yi, sourcefile, x, y, newlayer, destarea);
+					if (res.status == 200) {
 						const bitmap = await createImageBitmap(await res.blob());
 						multicanvas.grid[destarea.canvas.row][destarea.canvas.column].ctx.drawImage(
 							bitmap,
-							sourcex, //source x
-							sourcey, //source y
-							subtilesize, //source width
-							subtilesize, //source height
+							0, //source x
+							0, //source y
+							tilesize, //source width
+							tilesize, //source height
 							destarea.canvas.cellx, //dest x
-							destarea.canvas.celly+subtilesize, //dest y
-							subtilesize, //dest width
-							subtilesize //dest height
+							destarea.canvas.celly, //dest y
+							tilesize, //dest width
+							tilesize //dest height
 						);
 						hasdrawnto=true;
 					}
 				}
 			}
-			if (options.verbosity>=1) {
-				const tbl = addCanvasTable(multicanvas);
-				debugger;
+			progress(COMBOS.length);
+		}
+		for (const sq of mappaste.chunks) {
+			//map chunk - 1/4 of a z4 render
+			progress(1);
+			const newlayer = Math.min(3,sq.new_plane+layer),
+				maxlayer = sq.original_plane+sq.n_planes-1,
+				oldlayer = Math.min(3,sq.original_plane+layer);
+			if (newlayer === layer && oldlayer<=maxlayer) {
+				try {
+					const data:MapIconImageConfig[] = JSON.parse(await render.fs.readFileText(`maplabels/${sq.original_plane}/${sq.original_regionX}-${sq.original_regionY}.json`));
+					for (const conf of data) {
+						const relevantuses:MapIconImageConfig['uses'] = [];
+						for (const use of conf.uses) {
+							if ((Math.floor(use.x/8) === sq.original_chunkX && Math.floor(use.z/8)===sq.original_chunkY)) {
+								relevantuses.push({
+									x: use.x + (sq.new_chunkX - sq.original_chunkX)*8,
+									z: use.z + (sq.new_chunkY - sq.original_chunkY)*8,
+									regionX: sq.new_regionX,
+									regionY: sq.new_regionY
+								});
+								use.regionX = sq.original_regionX;
+								use.regionY = sq.original_regionY;
+							}
+						}
+						conf.uses = relevantuses;
+						if (mapIconsUsed[conf.id]) {
+							for (const use of conf.uses) mapIconsUsed[conf.id].uses.push(use);
+						} else {
+							mapIconsUsed[conf.id]=conf;
+						}
+					}
+				} catch(e) {
+					console.log(e);
+					//debugger;
+					//nothing
+				}
+				const x = sq.original_regionX*4 + Math.floor(sq.original_chunkX!/2),
+					y = sq.original_regionY*4 + Math.floor(sq.original_chunkY!/2),
+					destarea = mapAreaFactory.getAreaFromMap(sq.new_regionX*4 + sq.new_chunkX!/2, sq.new_regionY*4 + sq.new_chunkY!/2),
+					//destchunkx = subtilesize * Math.floor(sq.new_chunkX! / 2),
+					//destchunky = subtilesize * Math.floor(sq.new_chunkY! / 2),
+					sourcex = subtilesize * (sq.original_chunkX! % 2),
+					sourcey = subtilesize * (1-(sq.original_chunkY! % 2)),
+					sourcefile = render.makeFileName(oldlayer,4,x,y,'png',source),
+					res = await render.getFileResponse(sourcefile);
+				if (options.verbosity>=2) log('CHUNK', sq, sourcefile, x, y, sourcex, sourcey, destarea);
+				if (res.status==200) {
+					const bitmap = await createImageBitmap(await res.blob());
+					multicanvas.grid[destarea.canvas.row][destarea.canvas.column].ctx.drawImage(
+						bitmap,
+						sourcex, //source x
+						sourcey, //source y
+						subtilesize, //source width
+						subtilesize, //source height
+						destarea.canvas.cellx, //dest x
+						destarea.canvas.celly+subtilesize, //dest y
+						subtilesize, //dest width
+						subtilesize //dest height
+					);
+					hasdrawnto=true;
+				}
 			}
-			if (!hasdrawnto) continue;
-			const savingcanvasobj = makeCanvas(tilesize,tilesize),
-				savingcanvas = savingcanvasobj.cnv,
-				savingctx = savingcanvasobj.ctx;
-			if (options.verbosity>=2) document.body.prepend(savingcanvas);
-			let multicnvs:MultiCanvas = multicanvas,
-				westworking = west,
-				southworking = south,
-				numtilesw2 = numtilesw,
-				numtilesh2 = numtilesh;
-			for (let zoom=4; zoom>-6; zoom--) {
+		}
+		
+		await render.fs.writeFile(`maplabelsjson/${basemap.mapId}/icon_locs_${layer}.json`, JSON.stringify(mapIconsUsed,null,'\t'));
+		if (options.verbosity>=1) {
+			const tbl = addCanvasTable(multicanvas);
+			debugger;
+		}
+		if (!hasdrawnto) continue;
+		const savingcanvasobj = makeCanvas(tilesize,tilesize),
+			savingcanvas = savingcanvasobj.cnv,
+			savingctx = savingcanvasobj.ctx;
+		if (options.verbosity>=2) document.body.prepend(savingcanvas);
+		let multicnvs:MultiCanvas = multicanvas,
+			westworking = west,
+			southworking = south,
+			numtilesw2 = numtilesw,
+			numtilesh2 = numtilesh;
+		for (let zoom=4; zoom>-6; zoom--) {
+
+			const mapAreaFactorySaving = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize, multicnvs.width, multicnvs.height, westworking, southworking);
+			let savedstate:ImageData[];
+			for (const addIcons of [true,false]) {
 				log(`saving zoom ${zoom}`);
-				const mapAreaFactorySaving = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize, multicnvs.width, multicnvs.height, westworking, southworking);
 				let numsaved=0,numblack=0;
-				//for (let y=0;y<multicnvs.height;y+=tilesize) {
-					//for (let x=0;x<multicnvs.width;x+=tilesize) {
 				for (let y=0; y<=numtilesh2; y++) {
 					for (let x=0; x<=numtilesw2; x++) {
 						progress(1);
@@ -693,7 +789,7 @@ const mipMapID = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, op
 						if (options.verbosity>=2) log('savingcanvas', y,x, sourcearea);
 						if (sourcearea.canvas.row >= multicnvs.rows || sourcearea.canvas.column >= multicnvs.cols) continue;
 						const cnv = multicnvs.grid[sourcearea.canvas.row][sourcearea.canvas.column],
-							outfilename = render.makeFileName(layer, zoom, sourcearea.map.x, sourcearea.map.y, 'png', output);
+							outfilename = render.makeFileName(layer, zoom, sourcearea.map.x, sourcearea.map.y, 'png', addIcons ? output : iconsoutput);
 						savingctx.clearRect(0,0,tilesize,tilesize);
 						savingctx.drawImage(cnv.cnv, sourcearea.canvas.cellx, sourcearea.canvas.celly, tilesize,tilesize, 0,0,tilesize,tilesize);
 						const imgdata = savingctx.getImageData(0,0,tilesize,tilesize);
@@ -710,7 +806,7 @@ const mipMapID = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, op
 						} else {
 							//savingctx.drawImage(bitmap,0,0);
 							numsaved++;
-							if (!options.nosave) await render.saveFile(outfilename, -1, await canvasToImageFile(savingcanvas,'png',0.9));
+							if (!options.nosave) await render.saveFile(outfilename, -1, await canvasToImageFile(savingcanvas,'png',0.9), 0);
 							if (options.verbosity>=2) log('saved', outfilename);
 						}
 						if ((numblack + numsaved) % 200 == 0) {
@@ -718,77 +814,301 @@ const mipMapID = async (render:MapRender, basemap:BaseMap, mappaste:MapPaste, op
 						}
 					}
 				}
-				log(`FINISHED saving ${zoom}; saved ${numsaved} files; skipped ${numblack} blank files`);
-				if (zoom == -5) {
-					multicnvs.grid.forEach(row=>row.forEach(cell=>cell.cnv.remove()));
-					break;
-				};
-				const newwest = (westworking/2),
-					newsouth = (southworking/2),
-					westdiff = westworking-Math.floor(newwest)*2,
-					southdiff = southworking-Math.floor(newsouth)*2,
-					numtilesw_new = Math.ceil(numtilesw2/2),
-					numtilesh_new = Math.ceil(numtilesh2/2),
-					newwidth = numtilesw_new * tilesize,
-					newheight = numtilesh_new * tilesize,
-					smallermulticnv = makeCanvasArray(CANVAS_MAX_SIZE, newwidth, newheight, (newwidth>3000||newheight>3000)?'bigcanvas':'');
-				if (options.verbosity>=1) log(`oldsize ${multicnvs.width}x${multicnvs.height}px,  ${numtilesw2}x${numtilesh2} tiles; canvases rows=${multicnvs.rows},cols=${multicnvs.cols}`, '  ->  ', `newsize ${smallermulticnv.width}x${smallermulticnv.height},  ${numtilesw_new}x${numtilesh_new} tiles; canvases rows=${smallermulticnv.rows},cols=${smallermulticnv.cols}`, `oldwest ${westworking} -> newwest ${newwest};  oldsouth ${southworking} -> newsouth ${newsouth};  westdiff ${westdiff}, southdiff ${southdiff}`);
-				if (multicnvs.rows*multicnvs.cols === 1) {
-					// prior we only had one canvas so we can be a little simpler
-					const destx = 0,//westdiff * tilesize/2,
-						oldcnv = multicnvs.grid[0][0].cnv,
-						desty = smallermulticnv.height - oldcnv.height/2;
-					smallermulticnv.grid[0][0].ctx.drawImage(
-						multicnvs.grid[0][0].cnv,
-						//source topleft,size
-						0,0,oldcnv.width,oldcnv.height,
-						//dest topleft,size
-						destx, desty, oldcnv.width/2,oldcnv.height/2
-
-					);
-					if (options.verbosity>=1) log('one canvas to one canvas', `old y=0,x=0 - w=${oldcnv.width}px,h=${oldcnv.height}px`, '  ->  ', `new y=0,x=0 - dx=${destx}px,dy=${desty}px`)
-				} else {
-					// we had multiple canvases before
-					// scale 2x2 canvases into 1x1
-					for (let ri=0; ri<multicnvs.rows; ri++) {
-						const frombottom = CANVAS_MAX_SIZE*ri/2,
-							newcnvy = Math.floor(ri / 2);
-						//let frombottom = (multicnvs.rows-1-ri) * Math.min(smallermulticnv.height,CANVAS_MAX_SIZE)/2 + southdiff * tilesize/2,
-						//	newcnvy =  smallermulticnv.rows-1 - Math.floor((multicnvs.rows-ri-1)/2);
-						for (let ci=0; ci<multicnvs.cols; ci++) {
-							const oldcnv = multicnvs.grid[ri][ci],
-								fromleft = ci * CANVAS_MAX_SIZE/2,
-								newcnvx = Math.floor(ci/2),
-								newcellx = fromleft % CANVAS_MAX_SIZE + westdiff*tilesize/2,
-								newcnv = smallermulticnv.grid[newcnvy][newcnvx],
-								newcelly = newcnv.cnv.height - oldcnv.cnv.height/2 - (frombottom % CANVAS_MAX_SIZE);
-							newcnv.ctx.drawImage(
-								oldcnv.cnv,
-								0,0, oldcnv.cnv.width, oldcnv.cnv.height,
-								newcellx,newcelly, oldcnv.cnv.width/2, oldcnv.cnv.height/2
+				if (addIcons) {
+					log('adding icons')
+					savedstate = saveCanvases(multicnvs);
+					for (const [iconid,iconconf] of Object.entries(mapIconsUsed)) {
+						if (iconconf.src === '') continue;
+						const iconimg = await getIconImage(iconconf),
+							mapAreaFactoryIcon = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize, multicnvs.width, multicnvs.height, westworking, southworking);
+						log(`${iconconf.uses.length} uses of ${iconid}`)
+						for (const use of iconconf.uses) {
+							const area = mapAreaFactoryIcon.getAreaFromMap(use.regionX!*Math.pow(2,zoom-2), use.regionY!*Math.pow(2,zoom-2)),
+								offsetX = use.x * Math.pow(2,zoom) - iconconf.width/2,
+								offsetY = tilesize - iconconf.height - use.z*Math.pow(2,zoom);
+							multicnvs.grid[area.canvas.row][area.canvas.column].ctx.drawImage(
+								iconimg.image,
+								area.canvas.cellx + offsetX,
+								area.canvas.celly + offsetY
 							);
-							if (options.verbosity>=1) log(`old y=${ri},x=${ci} - w=${oldcnv.cnv.width}px,h=${oldcnv.cnv.height}px`, '  ->  ', `new y=${newcnvy},x=${newcnvx} - dx=${newcellx}px,dy=${newcelly}px`, '  ->  ', `frombottom ${frombottom}, fromleft ${fromleft}`)
+							if (options.verbosity>=1) log(`added icon ${iconid} to ${area.canvas.cellx + offsetX},${area.canvas.celly + offsetY}`, area, use);
+						}
+					}
+					if (options.verbosity>=1) {
+						debugger;
+					}
 
+				} else {
+					log('reverting icons')
+					restoreCanvases(multicnvs, savedstate!);
+				}
+
+			}
+			log(`FINISHED saving ${zoom}`);
+			if (zoom == -5) {
+				multicnvs.grid.forEach(row=>row.forEach(cell=>cell.cnv.remove()));
+				break;
+			};
+			const newwest = (westworking/2),
+				newsouth = (southworking/2),
+				westdiff = westworking-Math.floor(newwest)*2,
+				southdiff = southworking-Math.floor(newsouth)*2,
+				numtilesw_new = Math.ceil(numtilesw2/2),
+				numtilesh_new = Math.ceil(numtilesh2/2),
+				newwidth = numtilesw_new * tilesize,
+				newheight = numtilesh_new * tilesize,
+				smallermulticnv = makeCanvasArray(CANVAS_MAX_SIZE, newwidth, newheight, (newwidth>3000||newheight>3000)?'bigcanvas':'');
+			if (options.verbosity>=1) log(`oldsize ${multicnvs.width}x${multicnvs.height}px,  ${numtilesw2}x${numtilesh2} tiles; canvases rows=${multicnvs.rows},cols=${multicnvs.cols}`, '  ->  ', `newsize ${smallermulticnv.width}x${smallermulticnv.height},  ${numtilesw_new}x${numtilesh_new} tiles; canvases rows=${smallermulticnv.rows},cols=${smallermulticnv.cols}`, `oldwest ${westworking} -> newwest ${newwest};  oldsouth ${southworking} -> newsouth ${newsouth};  westdiff ${westdiff}, southdiff ${southdiff}`);
+			if (multicnvs.rows*multicnvs.cols === 1) {
+				// prior we only had one canvas so we can be a little simpler
+				const destx = 0,//westdiff * tilesize/2,
+					oldcnv = multicnvs.grid[0][0].cnv,
+					desty = smallermulticnv.height - oldcnv.height/2;
+				smallermulticnv.grid[0][0].ctx.drawImage(
+					multicnvs.grid[0][0].cnv,
+					//source topleft,size
+					0,0,oldcnv.width,oldcnv.height,
+					//dest topleft,size
+					destx, desty, oldcnv.width/2,oldcnv.height/2
+
+				);
+				if (options.verbosity>=1) log('one canvas to one canvas', `old y=0,x=0 - w=${oldcnv.width}px,h=${oldcnv.height}px`, '  ->  ', `new y=0,x=0 - dx=${destx}px,dy=${desty}px`)
+			} else {
+				// we had multiple canvases before
+				// scale 2x2 canvases into 1x1
+				for (let ri=0; ri<multicnvs.rows; ri++) {
+					const frombottom = CANVAS_MAX_SIZE*ri/2,
+						newcnvy = Math.floor(ri / 2);
+					//let frombottom = (multicnvs.rows-1-ri) * Math.min(smallermulticnv.height,CANVAS_MAX_SIZE)/2 + southdiff * tilesize/2,
+					//	newcnvy =  smallermulticnv.rows-1 - Math.floor((multicnvs.rows-ri-1)/2);
+					for (let ci=0; ci<multicnvs.cols; ci++) {
+						const oldcnv = multicnvs.grid[ri][ci],
+							fromleft = ci * CANVAS_MAX_SIZE/2,
+							newcnvx = Math.floor(ci/2),
+							newcellx = fromleft % CANVAS_MAX_SIZE + westdiff*tilesize/2,
+							newcnv = smallermulticnv.grid[newcnvy][newcnvx],
+							newcelly = newcnv.cnv.height - oldcnv.cnv.height/2 - (frombottom % CANVAS_MAX_SIZE);
+						newcnv.ctx.drawImage(
+							oldcnv.cnv,
+							0,0, oldcnv.cnv.width, oldcnv.cnv.height,
+							newcellx,newcelly, oldcnv.cnv.width/2, oldcnv.cnv.height/2
+						);
+						if (options.verbosity>=1) log(`old y=${ri},x=${ci} - w=${oldcnv.cnv.width}px,h=${oldcnv.cnv.height}px`, '  ->  ', `new y=${newcnvy},x=${newcnvx} - dx=${newcellx}px,dy=${newcelly}px`, '  ->  ', `frombottom ${frombottom}, fromleft ${fromleft}`)
+
+					}
+				}
+			}
+			
+			if (options.verbosity>=1) log('shrinking canvas', newwidth, newheight, newwest, newsouth, westdiff, southdiff);
+			multicnvs.grid.forEach(row=>row.forEach(cell=>cell.cnv.remove()));//remove from dom so they can be GC'd
+			multicnvs=smallermulticnv;
+			westworking = newwest;
+			southworking = newsouth;
+			numtilesw2=numtilesw_new;
+			numtilesh2=numtilesh_new;
+			if (options.verbosity>=1) {
+				const tbl = addCanvasTable(multicnvs);
+				debugger;
+			}
+		}
+		if (options.verbosity>=1) debugger;
+	}
+	progress(0,true);
+};
+
+const range = function* (val1:number,val2?:number):Generator<number> {
+	let start:number,end:number;
+	if (val2) {
+		start=val1;
+		end=val2;
+	} else {
+		start=0;
+		end=val1;
+	}
+	if (start<end) {
+		for (let i=start;i<end;i++) {
+			yield i;
+		}
+	} else {
+		for (let i=start;i>end;i--) {
+			yield i;
+		}
+	}
+	return
+},
+coordRange = function* (maxX:number, maxY:number):Generator<{x:number,y:number}> {
+	for (const x of range(maxX)) {
+		for (const y of range(maxY)) {
+			yield {x,y}
+		}
+	}
+	return;
+}
+
+const COMBOS3 = [[0,0], [0,1], [1,0], [1,1], [-1,0], [0,-1], [-1,-1], [1,-1], [-1,1]];
+const iconsAndMipDefault = async (render:MapRenderFsBacked, tilesize:number, options:{verbosity:number,nosave:boolean}) => {
+	log('beginning adding icons to -1');
+	for (const layer of [0,1,2,3]) {
+		log(`beginning layer ${layer}`)
+		const iconData:{[xy:string]:{id:number,uses:MapIconImageConfig['uses']}[]} = {}, iconSrcs:{[id:number]:{src:string,height:number,width:number}} = {};
+		for (const {x,y} of coordRange(100,200)) {
+			const iconjson:MapIconImageConfig[]|undefined = await(async()=>{try {
+					return JSON.parse(await render.fs.readFileText(`maplabels/${layer}/${x}-${y}.json`));
+				} catch(e){
+					return undefined
+				}
+			})();
+			if (iconjson === undefined) {
+				continue;
+			}
+			const data:{id:number,uses:MapIconImageConfig['uses']}[] = [];
+			for (const ic of iconjson) {
+				if (ic.src === '') continue;
+				if (!iconSrcs[ic.id]) {
+					iconSrcs[ic.id] = {
+						src:ic.src,
+						height:ic.height,
+						width:ic.width
+					}
+				}
+				data.push({id:ic.id, uses:ic.uses});
+			}
+			if (data.length>0) {
+				iconData[`${x} ${y}`] = data;
+			}
+		}
+		log(`icons found: ${Object.keys(iconSrcs).length}, tiles applied to ${Object.keys(iconData).length}`)
+		const canvas = makeCanvas(tilesize*3,tilesize*3);
+		const savingcanvas = makeCanvas(tilesize,tilesize);
+		if (options.verbosity>=1) {
+			document.body.prepend(document.createElement('br'), canvas.cnv, document.createElement('br'), savingcanvas.cnv);
+		}
+		for (const zoom of range(3,-7)) {
+			log(`adding icons to ${zoom}`);
+			const zoompow = Math.pow(2, zoom-2);
+			const subtilesize = zoompow * tilesize;
+			const gametilesize = 256/64 * zoompow;
+			let num_saved=0, num_black=0;
+			for (const {x:tileX,y:tileY} of coordRange(Math.ceil(100*zoompow),Math.ceil(200*zoompow))) {
+				let hasicon=false;
+				canvas.ctx.fillRect(0,0,canvas.cnv.width,canvas.cnv.height)
+				canvas.ctx.clearRect(0,0,canvas.cnv.width,canvas.cnv.height);
+
+				for (const [ox,oy] of COMBOS3) {
+					if (tileX+ox < 0 || tileY+oy < 0) continue;
+					for (const parentfolder of ['map_icon_squares/-1', 'map_squares/-1']) {
+						const fn = render.makeFileName(layer,zoom,tileX+ox,tileY+oy,'png',parentfolder),
+							res = await render.getFileResponse(fn);
+						if (res.status == 200) {
+							const bitmap = await createImageBitmap(await res.blob());
+							canvas.ctx.drawImage(bitmap, (ox+1)*tilesize, (1-oy)*tilesize);
+							if (options.verbosity>=2) log(`loaded ${fn} for ${tileX}+${ox},  ${tileY}+${oy}, dest ${(ox+1)*tilesize}, ${(1-oy)*tilesize}`)
+							break;
 						}
 					}
 				}
-				
-				if (options.verbosity>=1) log('shrinking canvas', newwidth, newheight, newwest, newsouth, westdiff, southdiff);
-				multicnvs.grid.forEach(row=>row.forEach(cell=>cell.cnv.remove()));//remove from dom so they can be GC'd
-				multicnvs=smallermulticnv;
-				westworking = newwest;
-				southworking = newsouth;
-				numtilesw2=numtilesw_new;
-				numtilesh2=numtilesh_new;
-				if (options.verbosity>=1) {
-					const tbl = addCanvasTable(multicnvs);
-					debugger;
+				const icons_overlapping:{[k:string]:boolean} = {'0 0':true};
+				if (zoom>2) {
+					const z2tileX = Math.floor(tileX / zoompow),
+						z2tileY = Math.floor(tileY / zoompow),
+						z2tileXoffset = tileX % zoompow,
+						z2tileYoffset = tileY % zoompow;
+					const iconinfo = iconData[`${z2tileX} ${z2tileY}`];
+					if (iconinfo) {
+						for (const icon of iconinfo) {
+							for (const use of icon.uses) {
+								if (Math.floor(use.x/(64/zoompow))===z2tileXoffset && Math.floor(use.z/(64/zoompow))===z2tileYoffset) {
+									hasicon=true;
+									const img = await getIconImage2(icon.id, iconSrcs[icon.id]),
+										xpos = (1 + (use.x)/(64/zoompow)-z2tileXoffset)*tilesize-img.image.width/2,
+										ypos = (2 - (use.z)/(64/zoompow)-z2tileYoffset)*tilesize-img.image.height;
+									canvas.ctx.drawImage(img.image,
+										xpos,
+										ypos
+									);
+									if (ypos < tilesize) {
+										icons_overlapping['0 1']=true;
+									}
+									if (xpos<tilesize) {
+										icons_overlapping['-1 0']=true;
+										if (ypos < tilesize) {
+											icons_overlapping['-1 1']=true;
+										}
+									}
+									if (xpos+img.image.width>2*tilesize) {
+										icons_overlapping['1 0']=true;
+										if (ypos < tilesize) {
+											icons_overlapping['1 1']=true;
+										}
+									}
+									if (options.verbosity>=2) log(`icon ${icon.id} drawn to ${(1 + use.x/(64/zoompow)-z2tileXoffset)*tilesize-img.image.width/2} ${(2 - use.z/(64/zoompow)-z2tileYoffset)*tilesize-img.image.height}`)
+								}
+							}
+						}
+					}
+				} else {
+					for (const {x:ix,y:iy} of coordRange(1/zoompow,1/zoompow)) {
+						const z2tileX = tileX/zoompow+ix, z2tileY = tileY/zoompow+iy;
+						const iconinfo = iconData[`${z2tileX} ${z2tileY}`];
+						if (iconinfo) {
+							for (const icon of iconinfo) {
+								for (const use of icon.uses) {
+									hasicon=true;
+									const img = await getIconImage2(icon.id, iconSrcs[icon.id]),
+										xpos = tilesize + ix*subtilesize + use.x/(64/zoompow)*tilesize - img.image.width/2 + gametilesize/2,
+										ypos =  tilesize + tilesize - (iy*subtilesize + use.z/(64/zoompow)*tilesize + img.image.height + gametilesize/2);
+									canvas.ctx.drawImage(img.image,
+										xpos,
+										ypos
+									);
+									if (ypos < tilesize) {
+										icons_overlapping['0 1']=true;
+									}
+									if (xpos<tilesize) {
+										icons_overlapping['-1 0']=true;
+										if (ypos < tilesize) {
+											icons_overlapping['-1 1']=true;
+										}
+									}
+									if (xpos+img.image.width>2*tilesize) {
+										icons_overlapping['1 0']=true;
+										if (ypos < tilesize) {
+											icons_overlapping['1 1']=true;
+										}
+									}
+									if (options.verbosity>=2) log(`icon ${icon.id} drawn to ${(1 + use.x/(64/zoompow))*tilesize-img.image.width/2} ${(2 - use.z/(64/zoompow))*tilesize-img.image.height}`)
+								
+								}
+							}
+						}
+
+					}
+				}
+				for (const [ix,iy] of COMBOS3) {
+					if (tileX+ix<0 || tileY+iy<0) continue;
+					if (!icons_overlapping[`${ix} ${iy}`])continue;
+					savingcanvas.ctx.fillRect(0,0,savingcanvas.cnv.width,savingcanvas.cnv.height)
+					savingcanvas.ctx.clearRect(0,0,savingcanvas.cnv.width,savingcanvas.cnv.height);
+					savingcanvas.ctx.drawImage(canvas.cnv, (ix+1)*tilesize, (1-iy)*tilesize, tilesize, tilesize, 0,0,tilesize,tilesize);
+					let isAllBlack = true;
+					const imgdata = savingcanvas.ctx.getImageData(0,0,savingcanvas.cnv.width,savingcanvas.cnv.height);
+					const outfile = render.makeFileName(layer, zoom, tileX+ix, tileY+iy, 'png', `map_icon_squares/-1/`);
+					for (let i=0; i<imgdata.data.length&&isAllBlack; i+=4) {
+						isAllBlack = imgdata.data[i]===0 && imgdata.data[i+1]===0 && imgdata.data[i+2]===0;// && imgdata.data[i+3]===0;
+						//imagedata.data is a flat array of r g b a for each pixel
+					}
+					if (isAllBlack) {
+						num_black++;
+					} else {
+						await render.saveFile(outfile, -1, await canvasToImageFile(savingcanvas.cnv, 'png', 0.9), 0);
+						if (options.verbosity>=2 && hasicon) debugger;
+						num_saved++;
+					}
+					if ((num_saved+num_black)%200 == 0) log(`saved ${num_saved}; black ${num_black}`);
 				}
 			}
-			if (options.verbosity>=1) debugger;
 		}
 	}
-	progress(0,true);
 };
 
 

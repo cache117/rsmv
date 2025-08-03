@@ -20,11 +20,12 @@
 		"resolveJsonModule": true,
 		"noImplicitThis": true,
 		"strictFunctionTypes": true,
-		"strictPropertyInitialization":true
+		"strictPropertyInitialization": true
 	},
 	"exclude": [
 		"node_modules",
-		"./generated"
+		"./generated",
+		"./extract_map"
 	],
 	"compileOnSave": false
 }

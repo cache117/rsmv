@@ -46,7 +46,9 @@ export class CLIScriptFS implements ScriptFS {
         return fs.promises.mkdir(this.convertPath(name), { recursive: true });
     }
     writeFile(name: string, data: Buffer | string) {
-        return fs.promises.writeFile(this.convertPath(name), data);
+        let fn = this.convertPath(name);
+        fs.mkdirSync(path.dirname(fn), { recursive: true });
+        return fs.promises.writeFile(fn, data);
     }
     readFileBuffer(name: string) {
         return fs.promises.readFile(this.convertPath(name));

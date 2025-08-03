@@ -16,13 +16,18 @@ type MapOverrides = {
 			new_regionX: number,
 			new_regionY: number,
 		}
-	}[]
+	}[],
+	addtiles?: {
+		mapId: number,
+		squares?: mapzones_pastes["squares"],
+		chunks?: mapzones_pastes["chunks"]
+	}[],
 	customs: {[k:string]:mapzones_pastes},
 	addplanes: {mapId:number, n_planes:number}[]
 };
 
 const load = async () => {
-	let overrides:MapOverrides = commentjson.parse(await fs.readFile('map_overrides.jsonc', 'utf-8')) as any;
+	const overrides:MapOverrides = commentjson.parse(await fs.readFile('map_overrides.jsonc', 'utf-8')) as any;
 	return overrides;	
 };
 
@@ -30,7 +35,7 @@ export const applyOverrides = async (mappastes:{[k:string]:mapzones_pastes}) => 
 	let overrides = await load();
 	
 	// apply overrides
-	for (let ov of overrides.overrides) {
+	for (const ov of overrides.overrides) {
 		let oldsq = mappastes[ov.mapId].squares;
 		if (ov.index !== undefined) {
 			oldsq[ov.index] = ov.content;
@@ -44,9 +49,39 @@ export const applyOverrides = async (mappastes:{[k:string]:mapzones_pastes}) => 
 			}
 		}
 	}
+	if (overrides.addtiles) {
+		for (const add of overrides.addtiles) {
+			if (add.chunks) {
+				for (let ch of add.chunks) {
+					mappastes[add.mapId].chunks.push(ch);
+				}
+			}
+			if (add.squares) {
+				for (let sq of add.squares) {
+					mappastes[add.mapId].squares.push(sq);
+				}
+			}
+			//recalculate size just to be sure its ok
+			let minx=100,maxx=0,miny=200,maxy=0;
+			for (let ch of mappastes[add.mapId].chunks) {
+				minx=Math.min(minx, ch.new_regionX);
+				maxx=Math.min(maxx, ch.new_regionX+1);
+				miny=Math.min(miny, ch.new_regionY);
+				maxy=Math.min(maxy, ch.new_regionY+1);
+			}
+			for (let sq of mappastes[add.mapId].squares) {
+				minx=Math.min(minx, sq.new_regionX);
+				maxx=Math.min(maxx, sq.new_regionX+1);
+				miny=Math.min(miny, sq.new_regionY);
+				maxy=Math.min(maxy, sq.new_regionY+1);
+			}
+			mappastes[add.mapId].height = Math.max(1,maxy-miny);
+			mappastes[add.mapId].width = Math.max(1,maxx-minx);
+		}
+	}
 
 	// add customs
-	for (let ov of Object.values(overrides.customs)) {
+	for (const ov of Object.values(overrides.customs)) {
 		let minnewx=500,minnewy=500,maxnewx=0,maxnewy=0;
 		if (ov.squares) {
 			for (let sq of ov.squares) {
@@ -76,11 +111,11 @@ export const applyOverrides = async (mappastes:{[k:string]:mapzones_pastes}) => 
 	Object.assign(mappastes, overrides.customs);
 	
 	// addplanes
-	for (let pl of overrides.addplanes) {
-		for (let sq of mappastes[pl.mapId.toString()].squares) {
+	for (const pl of overrides.addplanes) {
+		for (const sq of mappastes[pl.mapId.toString()].squares) {
 			sq.n_planes = pl.n_planes;
 		}
-		for (let ch of mappastes[pl.mapId.toString()].chunks) {
+		for (const ch of mappastes[pl.mapId.toString()].chunks) {
 			ch.n_planes = pl.n_planes;
 		}
 	}
