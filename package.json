@@ -20,12 +20,13 @@
 		"webrelease": "webpack --config webpack.config.web.js --mode production",
 		"clean": "rimraf dist",
 		"nodegl": "electron dist/runbrowser",
+		"sprites": "electron dist/runbrowser dist/cli extract --mode sprites -o cache --save extract_map/sprites -i 0-100000" ,
 		"map": "electron dist/runbrowser dist/maprender -o cache -c extract_map/mapconfig.jsonc -f",
-		"mapicons": "electron dist/runbrowser dist/maprender -o cache -c extract_map/renders/mapconfig_labels.jsonc -f --out extract_map/renders",
+		"mapicons": "electron dist/runbrowser dist/maprender -o cache -c extract_map/renders/mapconfig_labels.jsonc -f --out extract_map/renders/renders-20250911",
 		
 		"basemapwiki": "electron dist/runbrowser dist/maprenderwiki -o cache -f",
 
-		"mipwiki": "electron dist/runbrowser dist/maprenderwiki -o cache -f --domip --bm 1",
+		"mipwiki": "electron dist/runbrowser dist/maprenderwiki -o cache -f --domip",
 		
 		"mapwiki": "electron dist/runbrowser dist/maprenderwiki -o cache -f --rendermap",
 		
@@ -37,7 +38,7 @@
 	},
 	"config": {
 		"mapping": {
-			"outdir": "extract_map/renders/renders-20250728"
+			"outdir": "extract_map/renders/renders-20251008"
 		}
 	},
 	"author": "Skillbert",

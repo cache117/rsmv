@@ -254,6 +254,296 @@
 				"new_regionY": 52
 			}
 		},
+		{
+			"mapId": 28,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 54,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 54
+			}
+		},
+		// the same for the dedicated prif map
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 32,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 32,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 33,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 33,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 33,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 33,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 33,
+				"original_regionY": 53,
+				"new_plane": 0,
+				"new_regionX": 33,
+				"new_regionY": 53
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 53,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 53
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 53,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 53
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 50,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 50
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 35,
+				"original_regionY": 50,
+				"new_plane": 0,
+				"new_regionX": 35,
+				"new_regionY": 50
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 36,
+				"original_regionY": 51,
+				"new_plane": 0,
+				"new_regionX": 36,
+				"new_regionY": 51
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 36,
+				"original_regionY": 52,
+				"new_plane": 0,
+				"new_regionX": 36,
+				"new_regionY": 52
+			}
+		},
+		{
+			"mapId": 231,
+			"content": {
+				"blur_layers": [
+					false,
+					false,
+					true,
+					true
+				],
+				"n_planes": 4,
+				"original_plane": 1,
+				"original_regionX": 34,
+				"original_regionY": 54,
+				"new_plane": 0,
+				"new_regionX": 34,
+				"new_regionY": 54
+			}
+		},
+
 		{	// lost grove entrance
 			"mapId": 28,
 			"index": 746,
@@ -328,7 +618,72 @@
 				"new_regionX": 38,
 				"new_regionY": 40
 			}
+		},
+		{
+			"mapId": 28,
+			"content":{
+				"n_planes": 4,
+				"original_plane": 0,
+				"new_plane": 0,
+				"original_regionX": 38,
+				"original_regionY": 42,
+				"new_regionX": 38,
+				"new_regionY": 42
+			}
+		},
+		{
+			"mapId": 28,
+			"content":{
+				"n_planes": 4,
+				"original_plane": 0,
+				"new_plane": 0,
+				"original_regionX": 39,
+				"original_regionY": 42,
+				"new_regionX": 39,
+				"new_regionY": 42
+			}
+		},
+		// yu'biusk, the mighty fall
+		{
+			"mapId":668,
+			//"index": 5,
+			"content":{
+				"original_plane": 0,
+				"n_planes": 1,
+				"original_regionX": 19,
+				"original_regionY": 79,
+				"new_plane": 0,
+				"new_regionX": 1,
+				"new_regionY": 2
+			}
+		},
+		{
+			"mapId":668,
+			//"index": 9,
+			"content":{
+				"original_plane": 0,
+				"n_planes": 1,
+				"original_regionX": 20,
+				"original_regionY": 79,
+				"new_plane": 0,
+				"new_regionX": 2,
+				"new_regionY": 2
+			}
+		},
+		{
+			"mapId":668,
+			//"index": 10,
+			"content":{
+				"original_plane": 0,
+				"n_planes": 1,
+				"original_regionX": 20,
+				"original_regionY": 78,
+				"new_plane": 0,
+				"new_regionX": 2,
+				"new_regionY": 1
+			}
 		}
+		
 	],
 
 	// custom map squares that aren't in the relevant enum

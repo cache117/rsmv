@@ -7,12 +7,15 @@ import { MapRenderFsBacked, parseMapConfigObject } from "./backends";
 import fs from "fs/promises";
 import v8 from 'node:v8';
 import log from '../loggerwithtime';
-import { canvasToImageFile } from "../imgutils";
+import { canvasToImageFile, pixelsToDataUrl } from "../imgutils";
 import { cacheMajors } from "../constants";
 import { parse } from "../opdecoder";
 import path from "path";
-import { applyOverrides } from "./mapoverrides";
+import { applyOverrides,mapzones_pastes_override } from "./mapoverrides";
 import {env} from "node:process";
+import { quests } from "../../generated/quests";
+import { parseSprite } from "../3d/sprite";
+import { MapLabelLocation, readMapLabelLocations, range, coordRange, makeCombinations, isAllBlack } from "../utils2";
 
 type BaseMap = {
 	mapId:number,
@@ -32,21 +35,31 @@ type CoordBounds = {
 	y2r?: number,
 };
 
+type MapIconImageConfig = {
+	id:number,
+	src:string,
+	width:number,
+	height:number,
+	uses:{x:number, z:number, regionX?:number, regionY?:number, layer?:number}[]
+};
+type MapIconImage = {
+	id:number,
+	image:HTMLImageElement
+};
+
 type MapZone = import('../../generated/mapzones').mapzones;
-type MapPaste = import('../../generated/mapzones_pastes').mapzones_pastes & {name?:string};
-type MapPasteSqChunk = {
-		original_plane: number,
-		n_planes: number,
-		original_regionX: number,
-		original_regionY: number,
-		original_chunkX?: number,
-		original_chunkY?: number,
-		new_plane: number,
-		new_regionX: number,
-		new_regionY: number,
-		new_chunkX?: number,
-		new_chunkY?: number,
-	};
+type MapPaste = mapzones_pastes_override;
+
+const skipLabelIds = [
+	709, // yellow dot
+	920, // red dot
+	1216 // my marker
+];
+const skipDataSrcs = [
+	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAZCAYAAADe1WXtAAAAAXNSR0IArs4c6QAABYNJREFUSEuFlXlMFFccx787e8zushwrp6K43Hhi7UqKCkWtVYNShSpqqa1Gi1apRv/SVNFIq6auTaOmNW0DilJaFW09iIpaREERMR5YCnIsl7Cw970zzDYzHEE8OslM5vfy3ud9f+/9vu/x8PqHACAFMKL/Zf/5AGgAVgB6ADoAdgDMcARvWAMbSwCM3r5+2vt7sqavEIr4EwH4ABAAcAIwWM32Rzk/Pziz/8fKWwDa+uHuAdZQKPvvHRnmrXx6cXWOgKDj4NLybHYrzDZqcG5PqRBSiQdontgNNyonLiz6ur7FWAXACIADD4X6LF+gmJenWnyE51T7aQ0OlJa9wJ3bWjQ22mAyuuDlLUJYmBQzZvpi/hw/SKWeLKXn8x0PNxUWN19hsxgKlQYHyt5rKllaQFnVgY9r9VAdakfnCzuEfHZ5gUWnDShK9RpUHBUlxrYtCijGeLJtXeOTb61Ua+m7AGysUnZUuO7esuM8WhdfW6/F3pwW8L1jYGl/OgiZecKAm5/0QdmJZMETQVL12LNzLIJH8mG391aMnHv/MwANLFS2JSNiefYGxTGDroPYsbsLFsQgbtdfuHtwHUySSRBErEDcgmgUF12Cd/t9BDkfQ7HxF9QeSIG/uA7fZAewczE5v3ZlHv29p5CFhrReTcwVQDv7cokeJ0+wFQNII+cgdNMfaHikh9XJR3ySHFcvVyFIrkB4rBxNR5bBWHuNU735SzmmvsuH1eK8MS69bTULje24Nu2K1dgeqDrsQOvzvsowTfgKotg1UEwYg+aaVigTQ3D35r+ImBzFxaYqFWT/HOf6KqeIkZUlY6GaceltH7LQ+KYL42+YjJ3ivTt5sLv6almffB2M2B8eJMOBJRIGegOBtppn0DpMIJ0WBJWkc329vAgcOOgDvV7vis3QzWKhCY3nQ0t1PV287GwSPru0L/lBTPaFDidAsx92ZwVCEIK+qmBoBqZv/XH4qA90PV1QrrUlstDp9WdG/W00GIQqlQQmEwNbL4OOhMOAZzCkpBcUinGgXW7w4EJzYwXsFAXCacaosiwO7CsRYN93JIwGA6Vca0tioVOefB9/lXaa/PMvmtDcYoOzl4Em6lMQkzIR4B+CptYnGOMXiecttxET/QEXS+oLEVCXz0GjQ2VYnTYaBp2mO2FvA7emYx/sn5JLgJpV/cyK4jIz15EXkgjzjDy09dTAZNFhvCIBT+ovQeYZiLCgySDKMkGqS0HwgbTkUMSMtqPLSN2cv6+O233Zmul+K7JSAo9RDgfv5AUHOplwGJLywK/YDI1wJCxBMxEa+RHqagog1z1EAPUCtrh98LqTiVA0Y11GCKuS+em6fv2pct1vA46KqNwdkQ+448xWFwou0tBIw8B0PuNUS0QENKn18CwMB8knOHVOr2hIHGpkrYoASbWh20zfS1apVwF4PnCgSBUBgoT8TEUByXeP0GjdOFtsgbm3FySvb5cbFlbD9+xkDioREBCTAixLC4Vc0IVuM6XbmN+xsllDlw14n1tCAPI0pXTx1nnyH9gl0ZtInCuxg6F64WL6DGGnmVeAGjNlyS3t2Xy2yna+//B2Dz36WEm+qVOlSzbO9lWJSUamNQLFN3rh6DcECx9QKHOroTXCmleu31pUbTsHgC1wzjnDT/5B8IYk8pBYJPTQW4SDYLGIQErKGHjxO9BttFtPlDteAb4OyhmGVbx0qnDJF0myQyI+PIx2KUoqgAVzR0EGNbQW2nqq3Lz1dDX1ksIBKw5XOtD+CpgQjwDj0EFvdVlz77i2/fmIKhqa8lBvvwk6qPhjpTA1I06kAuDhohjrqUr6rcA3pT90Uk5xmlK4KP0dwfaCe/T+84+pCwB6Xnc1/1/6w8HsPeLRf+eb3gZkB/4HfXJboe/tSU4AAAAASUVORK5CYII=", // quest icon (started/complete)
+	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAaCAYAAABYQRdDAAAAAXNSR0IArs4c6QAABX1JREFUSEuF1QtMU1ccBvCP8iqFyqMttLRAkaIiVlZRNCBWMt2Yc4zBnCJEnToTX8k2zaZOowbjtmRbFhWNTJZhQJyvqDOMRRJeShAEVBQEChTaroVSKF5KWx5lOVdaAdGdpOm9t\+f/O985t/ceJ8zcnAC4AvAAwJw4ZgCwARgBYAFgnjgen06Q4smNnLsAmLV93fyo7RtknwUJ2PEYHw8EnLyA8UHASavSUeUXLtdfuXC18TGAFwBGATjwySg5ZooDOSGXT71/IkgwK9loUDk3Pe9FZ7fRMXBIgA8i5nHhwwkaU2mpW\+v3FR3u7DQoJ9LT8GSUmbBMHPXHD7EFg0ZNaFGFDrWaMIgXfQHx7AVg\+fhgyGiEsv0plHW/IVrYhsR4Prx8hB1bDlSmlVQpSWqyLA7UlcfjhZTmxBRSlDE855YRwfJfIF2agD5tD/qVnRilTHBhe8JXHAI/gT8aHpSgq\+xrbPvYBwIeqzUuvfxDtd5KEo\+QpOTjV5Uflw0ghYBRqX/ChxOAxttF6Fd2wVccDGcvT4wNmhzn85MS6eQ1V5JpGMCNZen3dwDoI6BbyrvcuMy9kcVFFTqGIeAHSCKWoCavAL4BfNiLKW0P2AJ/ehnowbp1WJKRBkVTDTjdB8hS2I5mPX/v2t3uCoJ6F5\+b8yvgtOX3sjCs2Z6L\+oLrsLm5QLomkcYpfY/jRrF5/jTWUFgExvAoZGmpKLywGVvlbeQPkLtqZ8uXBOU/yheWNChG5lVajmNOeCxq8/KwYtcO1F\+9Ca1aCUEQE\+/EiPCoWg2tygKBSAzZumSUn81GdEYGWlorEcs8igUS1xZZukZO0KDqbL\+G4jqL99jCuxhWd6O3rQ2S5bGouHyJBg9lbkbDk2eQLozEySO5NBy/YSMU9yrBDQuDmygAzk9W44N4X5MsXRNB0JDqbL/24joLY3xxGXprH2PQbAY/UIj6f\+4gLjEUs8MDcSgzCyeP7EZ767\+oKmlGZHIq9I1qeHl4gBsdBaeHcqxaxETMjr5Qgoqrs/06iussoGbfxqBagwGFAsKVclTn5cCfz8Leb1PQ8LgF0qg5OP3jDfTohhCTsQ2a0jJ4SyTwEgnBbk\+aitaejOioUphwn/kVQsRSGlu8eTeabxTA0KuFH4eFeTIentfr0WcYAocrwNyUNDzMzaLx1ie1SHDLwjKJJ6IPNb1MStCmbgZOlPpj457TqL16kb7bofLVUBbepOHhYQvc3Jg0KF6TjI6yu3Sf6HWbcOnMXhxe2YOIANtUdMA0gk/P9eGTz4\+DGyijU3jxg2jYTFGw6TRg8IXwYLNpcFCngnT9VvRonuJ6zkH8vV8Eb0/XV2jN8bAOMmrSeSs9etKmU3Rx453rGNB1wZsfDA/2LJipF47z\+WtTMWaz4Nq5nXgx0I/Sb/h07ZKjbS\+nb0fTLtpgMpPXJZCQvA/Bc5ejX6uCQd2KkR4DXP054IjC4SsIQlfzPZTc/JkGSXsran90CO7NC8cCaSINkeRkGcgATxuKoFJUw93dne5utVpfR\+8f5Hcw2b5Yn0O/uRzNntpqGZp5f5i4StDy74JhofoR973u5fTtqAtb6ChuNVM4cP7VM28fgHRgMkzITA2EVCJw9B\+lNFNQ/l97eNoh67CjA8vdDX5sZ3QMcXDszquUBPb0cMWxtSyEsgzoo8Ywve6jM3oBvYUAIC9E8k0aQy5xjtyV4JUj4nrwpsN2UN1r1p8tGdxWphh7NrEhklqyfsbpGx/5gVxjycNdYnet9MyfDBNQ5KpG9wD0Z0tN6WWto5UAyFSm7Kgzoa/BAd7g2dx5YFj1/wvai990Z6ckBsAD3p7QDr0p6eTfWSvmuixNj3b\+Kb92bH958\+iDmaY8Odl/Bct35SHapHwAAAAASUVORK5CYII=", // lodestone (trimmed?)
+
+]
 
 const CANVAS_TRUE_MAX_SIZE = 16000,
 boundsToCoordsStr = ([[x1,y1],[x2,y2]]:number[][]):string => {
@@ -105,8 +118,19 @@ makeBaseMap=(mapid:string, area:MapPaste, zone:MapZone):BaseMap=>{
 		name: isNotNullUndefOrEmpty(area.name) ? area.name! : (zone.name??(zone.internal_name??'UNKNOWN'))
 	};
 	return out;
-};
-
+},
+coordintToCoord = (x:number) => {
+	const gamey = x % 16384,
+		gamex = Math.floor(x / 16384) % 16384,
+		layer = Math.floor(Math.floor(x / 16384) / 16384);
+	return {
+		regionX: Math.floor(gamex/64),
+		regionY: Math.floor(gamey/64),
+		x: gamex % 64,
+		z: gamey % 64,
+		layer: layer
+	};
+}
 
 const cmd = cmdts.command({
 	name: "download",
@@ -171,15 +195,43 @@ const cmd = cmdts.command({
 		log('creating basemaps')
 
 		const files = await source.getArchiveById(cacheMajors.worldmap, 0),
-			worldmapzones: {[k:string]:MapZone} = Object.fromEntries(files.map(q => parse.mapZones.read(q.buffer, source))
-			.map((q,i)=>[i.toString(),q])),
+			worldmapzones: {[k:string]:MapZone} = Object.fromEntries(files.map(q => parse.mapZones.read(q.buffer, source)).map((q,i)=>[i.toString(),q])),
 			files2 = await source.getArchiveById(cacheMajors.worldmap, 1),
-			worldmappastes = Object.fromEntries(files2.map((q,i)=>[i,parse.mapPastes.read(q.buffer, source)]));
+			worldmappastes:{[k:string]:mapzones_pastes_override} = Object.fromEntries(files2.map((q,i)=>[i,parse.mapPastes.read(q.buffer, source)]));
 		await applyOverrides(worldmappastes);
+		const questIcon = parseSprite(await source.getFileById(cacheMajors.sprites, 21017)),
+			questIconSrc = await pixelsToDataUrl(questIcon[0].img), questIconWidth = questIcon[0].img.width, questIconHeight = questIcon[0].img.height,
+			questfiles = await source.getArchiveById(cacheMajors.config, 35),
+			quests:quests[] = questfiles.map(q=>parse.quest.read(q.buffer, source)),
+			queststartcoords=quests.map(q=>{
+				const out:{regionX:number,regionY:number,x:number,z:number}[] = [];
+				if (q.start_location_path) {
+					for (const coordint of q.start_location_path) {
+						out.push(coordintToCoord(coordint));
+					}
+				}
+				if (q.alternate_quest_start) {
+					out.push(coordintToCoord(q.alternate_quest_start));
+				}
+				return out;
+			}).flat(),
+			questIconLocs:MapIconImageConfig = {
+				id: 21021,
+				src: questIconSrc,
+				width: questIconWidth,
+				height: questIconHeight,
+				uses: queststartcoords
+			};
+
 			
 		await fs.writeFile(path.join(outdir, 'worldmap_zones.json'), JSON.stringify(worldmapzones,null,'\t'));
 		await fs.writeFile(path.join(outdir, 'worldmap_pastes.json'), JSON.stringify(worldmappastes,null,'\t'));
+		await fs.writeFile(path.join(outdir, 'questicon_locs.json'), JSON.stringify(questIconLocs,null,'\t'));
 
+		const maplabellocations = await readMapLabelLocations(source);
+		await fs.writeFile(path.join(outdir, 'map_label_locations.json'), JSON.stringify(maplabellocations,null,'\t'));
+		
+		//if (maplabellocations)return;
 		const basemaps:BaseMap[] = Object.entries(worldmappastes).map(([i,e])=>makeBaseMap(i,e,worldmapzones[i] ?? {})),
 			basemap_default:BaseMap = {
 				mapId: -1,
@@ -228,7 +280,7 @@ const cmd = cmdts.command({
 				"dzdy": 0,
 				"overlaywalls": true,
 				"overlayicons": false
-			})
+			}) 
 			conf.layers.push({
 				"name": `maplabels/${i}`,
 				"mode": "maplabels",
@@ -247,7 +299,9 @@ const cmd = cmdts.command({
 		duration_map[basemap_default.mapId].dur = duration_map[basemap_default.mapId].end! - duration_map[basemap_default.mapId].start;
 		let opts = {
 			verbosity:verbosity,
-			nosave:args.debug&&args.nosave
+			nosave:args.debug&&args.nosave,
+			questIconLocs:questIconLocs,
+			maplabellocs:maplabellocations
 		};
 		if (args.domip) {
 			globalThis.totalToMip=0;
@@ -555,27 +609,8 @@ restoreCanvases = (canvases:MultiCanvas, data:ImageData[])=> {
 
 
 
-const COMBOS = (()=>{
-	const arr:number[][] = [];
-	for (const i of [0,1,2,3]) {
-		for (const j of [0,1,2,3]) {
-			arr.push([i,j]);
-		}
-	}
-	return arr;
-})(),
-COMBOS2 = [[0,0],[0,1],[1,0],[1,1]];
-type MapIconImageConfig = {
-	id:number,
-	src:string,
-	width:number,
-	height:number,
-	uses:{x:number, z:number, regionX?:number, regionY?:number}[]
-};
-type MapIconImage = {
-	id:number,
-	image:HTMLImageElement
-};
+const COMBOS = makeCombinations(0,3,0,3),
+COMBOS2 = makeCombinations(0,1,0,1);
 const iconImages:{[id:number]:MapIconImage} = {},
 getIconImage=async (cnf:MapIconImageConfig):Promise<MapIconImage>=>{
 	if (iconImages[cnf.id]) return iconImages[cnf.id];
@@ -602,7 +637,7 @@ getIconImage2=async (id:number, cnf:{src:string,height:number,width:number}):Pro
 	return out;
 };
 
-const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapPaste, options:{verbosity:number,nosave:boolean})=>{
+const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapPaste, options:{verbosity:number,nosave:boolean, questIconLocs:MapIconImageConfig,maplabellocs:MapLabelLocation[]})=>{
 	const originalBounds = boundsToCoords(basemap.bounds),
 		tilesize = render.config.tileimgsize,
 		CANVAS_MAX_SIZE = tilesize * Math.floor(CANVAS_TRUE_MAX_SIZE/tilesize),
@@ -635,6 +670,10 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 			mapIconsUsed:{[id:number]:MapIconImageConfig} = {};
 			//mapAreaFactoryChunk = new MapAreaFactory(CANVAS_MAX_SIZE, tilesize/2, cnvw, cnvh, west, south);
 		
+		for (const mll of options.maplabellocs) {
+
+		}
+
 		log(`making big map, layer ${layer} - total ${canvases_w}x${canvases_h} canvases; ${cnvw}x${cnvh}px`)
 		log('folder', source, '->', output);
 		log(`west ${west}  south ${south}  east ${east}  north ${north}  numtilesw ${numtilesw}  numtilesh ${numtilesh}  cnvw ${cnvw}  cnvh ${cnvh}`);
@@ -647,8 +686,13 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 				newlayer = Math.min(3,sq.new_plane+layer),
 				oldlayer = Math.min(3,sq.original_plane+layer);
 			try {
-				const data:MapIconImageConfig[] = JSON.parse(await render.fs.readFileText(`maplabels/${sq.original_plane}/${sq.original_regionX}-${sq.original_regionY}.json`));
+				let iconsFrom = {l:sq.original_plane,x:sq.original_regionX,y:sq.original_regionY};
+				if (sq.iconsFrom) {
+					iconsFrom = sq.iconsFrom;
+				}
+				const data:MapIconImageConfig[] = JSON.parse(await render.fs.readFileText(`maplabels/${iconsFrom.l}/${iconsFrom.x}-${iconsFrom.y}.json`));
 				for (const conf of data) {
+					if (skipLabelIds.includes(conf.id) || skipDataSrcs.includes(conf.src)) continue;
 					const newuse:MapIconImageConfig['uses'] = [];
 					for (const use of conf.uses) {
 						newuse.push({
@@ -663,6 +707,24 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 					} else {
 						conf.uses=newuse;
 						mapIconsUsed[conf.id]=conf;
+					}
+				}
+				const questuse:MapIconImageConfig['uses'] = [];
+				for (const use of options.questIconLocs.uses) {
+					if (sq.original_plane === use.layer && sq.original_regionX === use.regionX && sq.original_regionY === use.regionY) {
+						questuse.push({
+							x: use.x,
+							z: use.z,
+							regionX: sq.new_regionX,
+							regionY: sq.new_regionY
+						})
+					}
+				}
+				if (questuse.length>0) {
+					if(mapIconsUsed[options.questIconLocs.id]) {
+						for (const use of questuse) mapIconsUsed[options.questIconLocs.id].uses.push(use);
+					} else {
+						mapIconsUsed[options.questIconLocs.id] = {id:options.questIconLocs.id, width:options.questIconLocs.width, height:options.questIconLocs.height, src:options.questIconLocs.src, uses:questuse};
 					}
 				}
 			} catch(e) {
@@ -707,6 +769,7 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 				try {
 					const data:MapIconImageConfig[] = JSON.parse(await render.fs.readFileText(`maplabels/${sq.original_plane}/${sq.original_regionX}-${sq.original_regionY}.json`));
 					for (const conf of data) {
+						if (skipLabelIds.includes(conf.id) || skipDataSrcs.includes(conf.src)) continue;
 						const relevantuses:MapIconImageConfig['uses'] = [];
 						for (const use of conf.uses) {
 							if ((Math.floor(use.x/8) === sq.original_chunkX && Math.floor(use.z/8)===sq.original_chunkY)) {
@@ -725,6 +788,24 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 							for (const use of conf.uses) mapIconsUsed[conf.id].uses.push(use);
 						} else {
 							mapIconsUsed[conf.id]=conf;
+						}
+					}
+					const questuse:MapIconImageConfig['uses'] = [];
+					for (const use of options.questIconLocs.uses) {
+						if (sq.original_plane === use.layer && sq.original_regionX === use.regionX && sq.original_regionY === use.regionY && Math.floor(use.x/8)===sq.original_chunkX && Math.floor(use.z/8)===sq.original_chunkY) {
+							questuse.push({
+								x: use.x + (sq.new_chunkX-sq.original_chunkX)*8,
+								z: use.z + (sq.new_chunkY-sq.original_chunkY)*8,
+								regionX: sq.new_regionX,
+								regionY: sq.new_regionY
+							})
+						}
+					}
+					if (questuse.length>0) {
+						if(mapIconsUsed[options.questIconLocs.id]) {
+							for (const use of questuse) mapIconsUsed[options.questIconLocs.id].uses.push(use);
+						} else {
+							mapIconsUsed[options.questIconLocs.id] = {id:options.questIconLocs.id, width:options.questIconLocs.width, height:options.questIconLocs.height, src:options.questIconLocs.src, uses:questuse};
 						}
 					}
 				} catch(e) {
@@ -760,6 +841,7 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 			}
 		}
 		
+		log(mapIconsUsed);
 		await render.fs.writeFile(`maplabelsjson/${basemap.mapId}/icon_locs_${layer}.json`, JSON.stringify(mapIconsUsed,null,'\t'));
 		if (options.verbosity>=1) {
 			const tbl = addCanvasTable(multicanvas);
@@ -769,7 +851,7 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 		const savingcanvasobj = makeCanvas(tilesize,tilesize),
 			savingcanvas = savingcanvasobj.cnv,
 			savingctx = savingcanvasobj.ctx;
-		if (options.verbosity>=2) document.body.prepend(savingcanvas);
+		if (options.verbosity>=1) document.body.prepend(savingcanvas);
 		let multicnvs:MultiCanvas = multicanvas,
 			westworking = west,
 			southworking = south,
@@ -793,14 +875,7 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 						savingctx.clearRect(0,0,tilesize,tilesize);
 						savingctx.drawImage(cnv.cnv, sourcearea.canvas.cellx, sourcearea.canvas.celly, tilesize,tilesize, 0,0,tilesize,tilesize);
 						const imgdata = savingctx.getImageData(0,0,tilesize,tilesize);
-						let isAllBlack = true;
-						for (let i=0;i<imgdata.data.length&&isAllBlack;i+=4) {
-							//isAllBlack = Math.max(...imgdata.data) === 0;
-							isAllBlack = imgdata.data[i]===0 && imgdata.data[i+1]===0 && imgdata.data[i+2]===0 && imgdata.data[i+3]===0;
-							//imagedata.data is a flat array of r g b a for each pixel
-							//if (!isAllBlack) break;
-						}
-						if (isAllBlack){
+						if (isAllBlack(imgdata)){
 							if (options.verbosity>=2) log('ALL BLACK', outfilename);
 							numblack++;
 						} else {
@@ -815,6 +890,7 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 					}
 				}
 				if (addIcons) {
+					const overflowedicons:Record<'west'|'east'|'north',{img:MapIconImage,x:number,y:number}[]>={west:[],north:[],east:[]};
 					log('adding icons')
 					savedstate = saveCanvases(multicnvs);
 					for (const [iconid,iconconf] of Object.entries(mapIconsUsed)) {
@@ -832,6 +908,79 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 								area.canvas.celly + offsetY
 							);
 							if (options.verbosity>=1) log(`added icon ${iconid} to ${area.canvas.cellx + offsetX},${area.canvas.celly + offsetY}`, area, use);
+							const west_overflow = area.canvas.x+offsetX, east_overflow = area.canvas.x + offsetX + iconconf.width - multicnvs.width, north_overflow = area.canvas.y + offsetY;
+							if (west_overflow < 0) {
+								overflowedicons.west.push({img:iconimg, x:tilesize+west_overflow, y:area.canvas.y+offsetY});
+							}
+							if (east_overflow > 0) {
+								overflowedicons.east.push({img:iconimg, x:east_overflow-multicnvs.width, y:area.canvas.y+offsetY});
+							}
+							if (north_overflow < 0) {
+								overflowedicons.north.push({img:iconimg, x:area.canvas.x+offsetX, y:tilesize+north_overflow});
+							}
+						}
+					}
+					if (overflowedicons.west.length>0) {
+						const overflow_canvas = makeCanvas(tilesize, multicnvs.height+tilesize);
+						//document.body.prepend(overflow_canvas.cnv);
+						for (const icon of overflowedicons.west) {
+							overflow_canvas.ctx.drawImage(
+								icon.img.image,
+								icon.x,
+								icon.y+tilesize
+							);
+						}
+						for (const tiley of range(0, overflow_canvas.cnv.height/tilesize+1)) {
+							const sourcearea = mapAreaFactorySaving.getAreaFromMapOffset(-1,tiley);
+							savingctx.clearRect(0,0,tilesize,tilesize);
+							savingctx.drawImage(overflow_canvas.cnv, 0, overflow_canvas.cnv.height-tilesize*tiley, tilesize,tilesize, 0,0,tilesize,tilesize);
+							const imgdata = savingctx.getImageData(0,0,tilesize,tilesize);
+							if (!isAllBlack(imgdata)) {
+								const fn = render.makeFileName(layer,zoom,sourcearea.map.x, sourcearea.map.y, 'png', iconsoutput);
+								await render.saveFile(fn, -1, await canvasToImageFile(savingcanvas, 'png', 0.9),0);
+							}
+						}
+					}
+					if (overflowedicons.east.length>0) {
+						const overflow_canvas = makeCanvas(tilesize, multicnvs.height+tilesize);
+						//document.body.prepend(overflow_canvas.cnv);
+						for (const icon of overflowedicons.east) {
+							overflow_canvas.ctx.drawImage(
+								icon.img.image,
+								icon.x,
+								icon.y+tilesize
+							);
+						}
+						for (const tiley of range(0, overflow_canvas.cnv.height/tilesize+1)) {
+							const sourcearea = mapAreaFactorySaving.getAreaFromMapOffset(multicnvs.width/tilesize+1,tiley);
+							savingctx.clearRect(0,0,tilesize,tilesize);
+							savingctx.drawImage(overflow_canvas.cnv, 0, overflow_canvas.cnv.height-tilesize*tiley, tilesize,tilesize, 0,0,tilesize,tilesize);
+							const imgdata = savingctx.getImageData(0,0,tilesize,tilesize);
+							if (!isAllBlack(imgdata)) {
+								const fn = render.makeFileName(layer,zoom,sourcearea.map.x, sourcearea.map.y, 'png', iconsoutput);
+								await render.saveFile(fn, -1, await canvasToImageFile(savingcanvas, 'png', 0.9),0);
+							}
+						}
+					}
+					if (overflowedicons.north.length>0) {
+						const overflow_canvas = makeCanvas(multicnvs.width,tilesize);
+						//document.body.prepend(overflow_canvas.cnv);
+						for (const icon of overflowedicons.north) {
+							overflow_canvas.ctx.drawImage(
+								icon.img.image,
+								icon.x,
+								icon.y
+							);
+						}
+						for (const tilex of range(0, overflow_canvas.cnv.width/tilesize)) {
+							const sourcearea = mapAreaFactorySaving.getAreaFromMapOffset(tilex,-1);
+							savingctx.clearRect(0,0,tilesize,tilesize);
+							savingctx.drawImage(overflow_canvas.cnv, tilex*tilesize, 0, tilesize,tilesize, 0,0,tilesize,tilesize);
+							const imgdata = savingctx.getImageData(0,0,tilesize,tilesize);
+							if (!isAllBlack(imgdata)) {
+								const fn = render.makeFileName(layer,zoom,sourcearea.map.x, sourcearea.map.y, 'png', iconsoutput);
+								await render.saveFile(fn, -1, await canvasToImageFile(savingcanvas, 'png', 0.9),0);
+							}
 						}
 					}
 					if (options.verbosity>=1) {
@@ -916,41 +1065,24 @@ const mipMapID = async (render:MapRenderFsBacked, basemap:BaseMap, mappaste:MapP
 	progress(0,true);
 };
 
-const range = function* (val1:number,val2?:number):Generator<number> {
-	let start:number,end:number;
-	if (val2) {
-		start=val1;
-		end=val2;
-	} else {
-		start=0;
-		end=val1;
-	}
-	if (start<end) {
-		for (let i=start;i<end;i++) {
-			yield i;
-		}
-	} else {
-		for (let i=start;i>end;i--) {
-			yield i;
-		}
-	}
-	return
-},
-coordRange = function* (maxX:number, maxY:number):Generator<{x:number,y:number}> {
-	for (const x of range(maxX)) {
-		for (const y of range(maxY)) {
-			yield {x,y}
-		}
-	}
-	return;
-}
 
-const COMBOS3 = [[0,0], [0,1], [1,0], [1,1], [-1,0], [0,-1], [-1,-1], [1,-1], [-1,1]];
-const iconsAndMipDefault = async (render:MapRenderFsBacked, tilesize:number, options:{verbosity:number,nosave:boolean}) => {
+const COMBOS3 = makeCombinations(-1,1,-1,1);
+const iconsAndMipDefault = async (render:MapRenderFsBacked, tilesize:number, options:{verbosity:number,nosave:boolean, questIconLocs:MapIconImageConfig}) => {
 	log('beginning adding icons to -1');
 	for (const layer of [0,1,2,3]) {
 		log(`beginning layer ${layer}`)
 		const iconData:{[xy:string]:{id:number,uses:MapIconImageConfig['uses']}[]} = {}, iconSrcs:{[id:number]:{src:string,height:number,width:number}} = {};
+		iconSrcs[options.questIconLocs.id] = {src:options.questIconLocs.src, height:options.questIconLocs.height, width:options.questIconLocs.width};
+		//pre-fill with quest icons
+		for (const use of options.questIconLocs.uses) {
+			if (use.layer===layer) {
+				const k = `${use.regionX} ${use.regionY}`;
+				if (iconData[k]==undefined) {
+					iconData[k]=[];
+				}
+				iconData[k].push({id:options.questIconLocs.id, uses:[use]})
+			}
+		}
 		for (const {x,y} of coordRange(100,200)) {
 			const iconjson:MapIconImageConfig[]|undefined = await(async()=>{try {
 					return JSON.parse(await render.fs.readFileText(`maplabels/${layer}/${x}-${y}.json`));
@@ -974,7 +1106,12 @@ const iconsAndMipDefault = async (render:MapRenderFsBacked, tilesize:number, opt
 				data.push({id:ic.id, uses:ic.uses});
 			}
 			if (data.length>0) {
-				iconData[`${x} ${y}`] = data;
+				const k = `${x} ${y}`;
+				if (iconData[k]==undefined) {
+					iconData[k] = data;
+				} else {
+					iconData[k] = iconData[k].concat(data);
+				}
 			}
 		}
 		log(`icons found: ${Object.keys(iconSrcs).length}, tiles applied to ${Object.keys(iconData).length}`)
@@ -1090,14 +1227,9 @@ const iconsAndMipDefault = async (render:MapRenderFsBacked, tilesize:number, opt
 					savingcanvas.ctx.fillRect(0,0,savingcanvas.cnv.width,savingcanvas.cnv.height)
 					savingcanvas.ctx.clearRect(0,0,savingcanvas.cnv.width,savingcanvas.cnv.height);
 					savingcanvas.ctx.drawImage(canvas.cnv, (ix+1)*tilesize, (1-iy)*tilesize, tilesize, tilesize, 0,0,tilesize,tilesize);
-					let isAllBlack = true;
 					const imgdata = savingcanvas.ctx.getImageData(0,0,savingcanvas.cnv.width,savingcanvas.cnv.height);
 					const outfile = render.makeFileName(layer, zoom, tileX+ix, tileY+iy, 'png', `map_icon_squares/-1/`);
-					for (let i=0; i<imgdata.data.length&&isAllBlack; i+=4) {
-						isAllBlack = imgdata.data[i]===0 && imgdata.data[i+1]===0 && imgdata.data[i+2]===0;// && imgdata.data[i+3]===0;
-						//imagedata.data is a flat array of r g b a for each pixel
-					}
-					if (isAllBlack) {
+					if (isAllBlack(imgdata)) {
 						num_black++;
 					} else {
 						await render.saveFile(outfile, -1, await canvasToImageFile(savingcanvas.cnv, 'png', 0.9), 0);

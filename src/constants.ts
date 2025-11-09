@@ -23,6 +23,8 @@ export const cacheMajors = {
 	models: 47,
 	frames: 48,
 
+	maplabellocations: 42,
+
 	texturesOldPng: 9,
 	texturesOldCompoundPng: 37,
 

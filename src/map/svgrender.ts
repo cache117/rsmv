@@ -4,6 +4,7 @@ import { cacheMajors } from "../constants";
 import { EngineCache } from "../3d/modeltothree";
 import { makeImageData, pixelsToDataUrl } from "../imgutils";
 import { getOrInsert } from "../utils";
+import { readMapLabelLocations } from "../utils2";
 
 type Point = { x: number, z: number }
 
@@ -70,8 +71,26 @@ function unfoldPolygon(poly: Point[], mergelinear: boolean) {
 	}
 }
 
-export async function jsonIcons(engine: EngineCache, locs: WorldLocation[], rect: MapRect, maplevel: number) {
+export async function jsonIcons(engine: EngineCache, locs: WorldLocation[], rect: MapRect, maplevel: number, doMapLabelLocations:boolean) {
 	let maplabels = new Map<number, { src: string, width: number, height: number, uses: Point[] }>();
+
+	const dothething=async (mapFunc:number)=>{
+		let maplabel = engine.mapMaplabels[mapFunc];
+		if (maplabel.legacy_switch) {
+			maplabel = engine.mapMaplabels[maplabel.legacy_switch.default_ref];
+		}
+		let src = "";
+		let width = 0;
+		let height = 0;
+		if (maplabel.sprite != undefined) {
+			let spritefile = await engine.getFileById(cacheMajors.sprites, maplabel.sprite);
+			let sprite = parseSprite(spritefile);
+			src = await pixelsToDataUrl(sprite[0].img);
+			width = sprite[0].img.width;
+			height = sprite[0].img.height;
+		}
+		return { src: src, width, height, uses: [] };
+	};
 
 	//number of tiles outside bounds to draw
 	const overdraw = 0;
@@ -84,24 +103,33 @@ export async function jsonIcons(engine: EngineCache, locs: WorldLocation[], rect
 		if (loc.location.mapFunction) {
 			let group = maplabels.get(loc.location.mapFunction);
 			if (!group) {
-				let maplabel = engine.mapMaplabels[loc.location.mapFunction];
-				if (maplabel.legacy_switch) {
-					maplabel = engine.mapMaplabels[maplabel.legacy_switch.default_ref];
-				}
-				let src = "";
-				let width = 0;
-				let height = 0;
-				if (maplabel.sprite != undefined) {
-					let spritefile = await engine.getFileById(cacheMajors.sprites, maplabel.sprite);
-					let sprite = parseSprite(spritefile);
-					src = await pixelsToDataUrl(sprite[0].img);
-					width = sprite[0].img.width;
-					height = sprite[0].img.height;
-				}
-				group = { src: src, width, height, uses: [] };
+				group = await dothething(loc.location.mapFunction);
 				maplabels.set(loc.location.mapFunction, group);
 			}
 			group.uses.push({ x: loc.x - rect.x, z: loc.z - rect.z });
+		}
+	}
+	if (doMapLabelLocations) {
+		const mapLabelLocations = await readMapLabelLocations(engine.rawsource)
+		for (const mll of mapLabelLocations) {
+			if (mll.location.plane !== maplevel) continue;
+			const loc = {
+				x: mll.location.x,
+				z: mll.location.y
+			};
+			if (loc.x < rect.x - overdraw || loc.z < rect.z - overdraw) { continue; }
+			if (loc.x >= rect.x + rect.xsize + overdraw || loc.z >= rect.z + rect.zsize + overdraw) { continue; }
+			loc.x -= rect.x;
+			loc.z -= rect.z;
+			let group = maplabels.get(mll.labelId);
+			if (!group) {
+				group = await dothething(mll.labelId);
+				if (group.height === 0 || group.width === 0 || group.src.length === 0) continue;
+				maplabels.set(mll.labelId, group);
+			}
+			if (!group.uses.some(el=>el.x==loc.x && el.z==loc.z)){
+				group.uses.push(loc);
+			}
 		}
 	}
 

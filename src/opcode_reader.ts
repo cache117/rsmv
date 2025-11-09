@@ -1627,6 +1627,29 @@ const parserPrimitives: Record<string, ChunkParser> = {
 	},
 	string: stringParser([]),
 	paddedstring: stringParser([0]),
+	coordinate: {
+		read(s){
+			let loc = s.buffer.readInt32BE();
+			let plane = loc >> 28;
+			let x = (loc >> 14) & 0x3FFF;
+			let y = loc & 0x3FFF;
+			return {loc, plane, x, y};
+		},
+		write(s,v){
+			throw new Error("not implemented");
+		},
+		getJsonSchema(){
+			return {type: 'object', properties: {
+				plane:{type:'number'},
+				x:{type:'number'},
+				y:{type:'number'},
+				loc:{type:'number'}
+			}}
+		},
+		getTypescriptType(indent){
+			return '{plane:number,x:number,y:number,loc:number}';
+		}
+	}
 }
 
 const parserFunctions = {

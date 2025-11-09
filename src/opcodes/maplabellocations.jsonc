@@ -1,0 +1,5 @@
+["struct",
+    ["location", "coordinate"],
+    ["labelId", "ushort"],
+    ["val0", "ubyte"]
+]

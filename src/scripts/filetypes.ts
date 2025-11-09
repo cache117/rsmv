@@ -631,6 +631,7 @@ export const cacheFileJsonModes = constrainedMap<JsonBasedFile>()({
 	quickchatlines: { parser: parse.quickchatLines, lookup: singleMinorIndex(cacheMajors.quickchat, 1) },
 	dbtables: { parser: parse.dbtables, lookup: singleMinorIndex(cacheMajors.config, cacheConfigPages.dbtables) },
 	dbrows: { parser: parse.dbrows, lookup: singleMinorIndex(cacheMajors.config, cacheConfigPages.dbrows) },
+	quests: { parser: parse.quest, lookup: singleMinorIndex(cacheMajors.config, 35) },
 
 	overlays: { parser: parse.mapsquareOverlays, lookup: singleMinorIndex(cacheMajors.config, cacheConfigPages.mapoverlays) },
 	identitykit: { parser: parse.identitykit, lookup: singleMinorIndex(cacheMajors.config, cacheConfigPages.identityKit) },
@@ -640,6 +641,7 @@ export const cacheFileJsonModes = constrainedMap<JsonBasedFile>()({
 	environments: { parser: parse.environments, lookup: singleMinorIndex(cacheMajors.config, cacheConfigPages.environments) },
 	animgroupconfigs: { parser: parse.animgroupConfigs, lookup: singleMinorIndex(cacheMajors.config, cacheConfigPages.animgroups) },
 	maplabels: { parser: parse.maplabels, lookup: singleMinorIndex(cacheMajors.config, cacheConfigPages.maplabels) },
+	maplabellocations: { parser: parse.maplabellocations, lookup: standardIndex(cacheMajors.maplabellocations) },
 	mapzones: { parser: parse.mapZones, lookup: singleMinorIndex(cacheMajors.worldmap, 0) },
 	cutscenes: { parser: parse.cutscenes, lookup: noArchiveIndex(cacheMajors.cutscenes) },
 

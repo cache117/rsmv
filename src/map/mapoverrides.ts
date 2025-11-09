@@ -25,13 +25,23 @@ type MapOverrides = {
 	customs: {[k:string]:mapzones_pastes},
 	addplanes: {mapId:number, n_planes:number}[]
 };
+export type mapzones_pastes_override = mapzones_pastes & {
+	squares: {
+		iconsFrom?: {
+			x: number,
+			y: number,
+			l: number
+		}
+	}[],
+	name?: string
+};
 
 const load = async () => {
 	const overrides:MapOverrides = commentjson.parse(await fs.readFile('map_overrides.jsonc', 'utf-8')) as any;
 	return overrides;	
 };
 
-export const applyOverrides = async (mappastes:{[k:string]:mapzones_pastes}) => {
+export const applyOverrides = async (mappastes:{[k:string]:mapzones_pastes_override}) => {
 	let overrides = await load();
 	
 	// apply overrides
@@ -40,11 +50,13 @@ export const applyOverrides = async (mappastes:{[k:string]:mapzones_pastes}) => 
 		if (ov.index !== undefined) {
 			oldsq[ov.index] = ov.content;
 		} else {
-			let x = ov.content.original_regionX, y = ov.content.original_regionY;
+			let x = ov.content.new_regionX, y = ov.content.new_regionY;
 			for (let old of oldsq) {
 				if (old.new_regionX == x && old.new_regionY == y) {
+					const added = {x: old.original_regionX, y: old.original_regionY, l:old.original_plane};
 					Object.assign(old, ov.content);
-					break
+					old.iconsFrom = added;
+					break;
 				}
 			}
 		}

@@ -1040,7 +1040,7 @@ const rendermodeMaplabels: RenderMode<"height"> = function (engine, config, cnf,
 			let chunkSize = chunks[0].chunkSize;
 			let rawarea = { x: singlerect.x * chunkSize, z: singlerect.z * chunkSize, xsize: chunkSize, zsize: chunkSize };
 			let locs = chunks.flatMap(ch => ch.chunk?.locs ?? []);
-			let iconjson = await jsonIcons(engine, locs, rawarea, thiscnf.level);
+			let iconjson = await jsonIcons(engine, locs, rawarea, thiscnf.level, true);
 			let textual = prettyJson(iconjson, { indent: "\t" });
 			let buf: Buffer = Buffer.from(textual, "utf8");
 			if (thiscnf.usegzip) {
