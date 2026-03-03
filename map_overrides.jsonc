@@ -1483,9 +1483,14 @@
 		{"mapId": 137, "n_planes": 4}, //games room
 		{"mapId": 200, "n_planes": 4}, //poison wastes sewer
 		{"mapId": 211, "n_planes": 4}, //temple of light
+		{"mapId": 353, "n_planes": 3}, //rat catchers mansion
 		{"mapId": 515, "n_planes": 3}, //enakhra's temple
+		{"mapId": 547, "n_planes": 2}, //ghorrock fortress frozen
+		{"mapId": 548, "n_planes": 2}, //ghorrock fortress thawed
 		{"mapId": 549, "n_planes": 3}, //mage training arena
+		{"mapId": 595, "n_planes": 2}, //beneath harmony island
 		{"mapId": 677, "n_planes": 4}, //new varrock
-		{"mapId": 688, "n_planes": 4}  //guthixian caches
+		{"mapId": 688, "n_planes": 4}, //guthixian caches
+		{"mapId": 742, "n_planes": 4}  //city of um
 	]
 }
